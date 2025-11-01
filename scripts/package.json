@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "firebase-admin": "^13.5.0",
+    "uid": "^2.0.2"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^10.1.0"
+  }
+}
