@@ -7,7 +7,7 @@ type User = {
     birthdate?: Timestamp;
     gender?: string;
     organization?: string;
-    profilePictureUrls?: string[];
+    profileImagePaths?: string[];
     bio?: string;
     permissions?: UserPermissions;
     metadata?: UserMetadata;
@@ -20,7 +20,7 @@ type UserHobby = {
     badgeLevel?: string;
 }
 
-type UserEvents = {
+type UserEvent = {
     eventId: string;
     date: Timestamp;
     role: string;
@@ -36,4 +36,4 @@ type UserMetadata = {
     updatedAt: Timestamp;
     lastActiveAt?: Timestamp;
 }
-export { User, UserHobby, UserEvents, UserPermissions, UserMetadata };
+export { User, UserHobby, UserEvent, UserPermissions, UserMetadata };
