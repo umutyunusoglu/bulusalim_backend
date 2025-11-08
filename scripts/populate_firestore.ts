@@ -82,7 +82,7 @@ async function populateFirestore(num_users: number, num_events: number) {
 
         const url = await uploadPhoto(pic_path, destination_path);
         const userData: User = {
-            uid: user_id,
+            userID: user_id,
             email: `kullanici${i + 1}@example.com`,
             birthdate: admin.firestore.Timestamp.fromDate(birthdate),
             gender: faker.person.sexType(),
@@ -102,8 +102,8 @@ async function populateFirestore(num_users: number, num_events: number) {
             }
         };
         users.push(userData);
-        await usersCollection.doc(userData.uid).set(userData);
-        console.log(`Kullanıcı eklendi: ${userData.uid}`);
+        await usersCollection.doc(user_id).set(userData);
+        console.log(`Kullanıcı eklendi: ${user_id}`);
     }
     // Create events
     for (let j = 0; j < num_events; j++) {
@@ -120,11 +120,11 @@ async function populateFirestore(num_users: number, num_events: number) {
         const hobbiesForEvent = faker.helpers.arrayElements(hobbies, hobby_count);
 
         const eventData: Event = {
-            eventId: faker.string.uuid(),
+            eventID: faker.string.uuid(),
             name: faker.lorem.words(3),
             info: faker.lorem.sentence(),
             hobbies: hobbiesForEvent,
-            creator: participants[0].uid,
+            creator: participants[0].userID,
             capacity: capacity,
             startTime: startTime,
             endTime: endTime,
@@ -145,8 +145,8 @@ async function populateFirestore(num_users: number, num_events: number) {
             }
         }
 
-        await db.collection('events').doc(eventData.eventId).set(eventData);
-        console.log(`Etkinlik eklendi: ${eventData.eventId}`);
+        await db.collection('events').doc(eventData.eventID).set(eventData);
+        console.log(`Etkinlik eklendi: ${eventData.eventID}`);
         events.push(eventData);
 
 
@@ -154,7 +154,7 @@ async function populateFirestore(num_users: number, num_events: number) {
 
 
             const participant = participants[k];
-            try { console.log(participant.uid); } catch (e) {
+            try { console.log(participant.userID); } catch (e) {
 
                 console.log(participant);
                 throw e;
@@ -162,21 +162,21 @@ async function populateFirestore(num_users: number, num_events: number) {
             //add hobby to user if not exists else increment eventsJoined
 
             const participantData: EventParticipant = {
-                userId: participant.uid,
+                userID: participant.userID,
                 role: k === 0 ? 'creator' : 'participant',
                 eventScore: faker.number.int({ min: 1, max: 100 }),
             }
-            await db.collection('events').doc(eventData.eventId).collection('participants').doc(participant.uid).set(participantData);
+            await db.collection('events').doc(eventData.eventID).collection('participants').doc(participant.userID).set(participantData);
 
             const userEventData: UserEvent = {
-                eventId: eventData.eventId,
+                eventID: eventData.eventID,
                 date: startTime,
                 role: k === 0 ? 'creator' : 'participant',
             }
-            await db.collection('users').doc(participant.uid).collection('events').doc(eventData.eventId).set(userEventData);
+            await db.collection('users').doc(participant.userID).collection('events').doc(eventData.eventID).set(userEventData);
 
             for (const hobby of hobbiesForEvent) {
-                const userHobbyRef = db.collection('users').doc(participant.uid).collection('hobbies').doc(hobby);
+                const userHobbyRef = db.collection('users').doc(participant.userID).collection('hobbies').doc(hobby);
                 const userHobbyDoc = await userHobbyRef.get();
 
                 if (userHobbyDoc.exists) {
@@ -203,15 +203,19 @@ async function populateFirestore(num_users: number, num_events: number) {
                 for (let p = 0; p < num_pics; p++) {
                     const post_pic_path = post_pic_paths ? post_pic_paths[faker.number.int({ min: 0, max: post_pic_paths.length - 1 })] : undefined;
                     if (post_pic_path) {
-                        const post_destination_path = `users/${participant.uid}/posts/images/${post_id}.jpg`;
-                        const post_url = await uploadPhoto(post_pic_path, post_destination_path);
-                        post_urls.push(post_url);
+
+                        const post_destination_path = `users/${participant.userID}/posts/${post_id}/images/${p}.jpg`;
+                        console.log("uploading image to ", post_destination_path);
+                        uploadPhoto(post_pic_path, post_destination_path);
+
+                        post_urls.push(post_destination_path);
                     }
                 }
+                console.log("Post resim yolları:", post_urls);
                 const postData: Post = {
-                    postId: post_id,
-                    userId: participant.uid,
-                    eventId: eventData.eventId,
+                    postID: post_id,
+                    userID: participant.userID,
+                    eventID: eventData.eventID,
                     title: faker.lorem.sentence(),
                     metadata: {
                         createdAt: admin.firestore.Timestamp.now(),
@@ -227,21 +231,21 @@ async function populateFirestore(num_users: number, num_events: number) {
                     participants: [],
                     emoteCounts: {},
                 }
-                await db.collection('posts').doc(postData.postId).set(postData);
+                await db.collection('posts').doc(postData.postID).set(postData);
             }
 
         }
 
         const messageCount = faker.number.int({ min: 1, max: 20 });
         for (let m = 0; m < messageCount; m++) {
-            const sender_id = participants[faker.number.int({ min: 0, max: joined_number - 1 })].uid;
+            const sender_id = participants[faker.number.int({ min: 0, max: joined_number - 1 })].userID;
             const messageData = {
                 messageId: faker.string.uuid(),
                 content: faker.lorem.sentence(),
                 sender: sender_id,
                 sendTime: admin.firestore.Timestamp.now(),
             }
-            await db.collection('events').doc(eventData.eventId).collection('messages').doc(messageData.messageId).set(messageData);
+            await db.collection('events').doc(eventData.eventID).collection('messages').doc(messageData.messageId).set(messageData);
         }
 
     }

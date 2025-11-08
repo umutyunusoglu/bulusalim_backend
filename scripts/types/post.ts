@@ -1,9 +1,9 @@
 import { GeoPoint } from "firebase-admin/firestore";
 
 type Post = {
-    postId: string;
-    userId: string;
-    eventId: string;
+    postID: string;
+    userID: string;
+    eventID: string;
     title: string;
     metadata: PostMetadata;
     location: GeoPoint;

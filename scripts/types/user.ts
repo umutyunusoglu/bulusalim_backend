@@ -1,7 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
 
 type User = {
-    uid: string;
+    userID: string;
     email?: string;
     username?: string;
     birthdate?: Timestamp;
@@ -21,7 +21,7 @@ type UserHobby = {
 }
 
 type UserEvent = {
-    eventId: string;
+    eventID: string;
     date: Timestamp;
     role: string;
 }

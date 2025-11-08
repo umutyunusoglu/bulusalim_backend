@@ -1,7 +1,7 @@
 import { GeoPoint } from "firebase-admin/firestore";
 
 type Event = {
-    eventId: string;
+    eventID: string;
     name: string;
     info: string;
     hobbies: string[];
@@ -28,7 +28,7 @@ type EventMetadata = {
 }
 
 type EventParticipant = {
-    userId: string;
+    userID: string;
     role: string;
     eventScore?: number;
 }
