@@ -9,6 +9,7 @@ import { hobbies } from './types/hobby';
 import { start } from 'repl';
 import { Event, EventParticipant } from './types/event';
 import { Post } from './types/post';
+import { getDownloadURL } from 'firebase-admin/storage';
 dotenv.config();
 
 const serviceAccountKeyString = process.env.FIREBASE_SA_KEY;
@@ -19,7 +20,6 @@ if (!serviceAccountKeyString) {
 
 let db: Firestore;
 let storage: admin.storage.Storage;
-let profile_pic_path: string;
 
 try {
     const serviceAccount = JSON.parse(serviceAccountKeyString);
@@ -51,7 +51,9 @@ async function uploadPhoto(source_path: string, destination_path: string): Promi
             contentType: 'image/jpeg',
         },
     });
-    return `${destination_path}`;
+
+    return await getDownloadURL(bucket.file(destination_path));
+
 }
 
 async function populateFirestore(num_users: number, num_events: number) {
@@ -89,7 +91,7 @@ async function populateFirestore(num_users: number, num_events: number) {
             organization: faker.company.name(),
             bio: faker.lorem.sentence(),
             username: faker.internet.username() + faker.number.int({ min: 1, max: 1000 }).toString(),
-            profileImagePaths: [url || 'default_url'],
+            profileImageUrl: url,
             permissions: {
                 locationEnabled: faker.datatype.boolean(),
                 notificationsEnabled: faker.datatype.boolean(),
@@ -206,9 +208,9 @@ async function populateFirestore(num_users: number, num_events: number) {
 
                         const post_destination_path = `users/${participant.userID}/posts/${post_id}/images/${p}.jpg`;
                         console.log("uploading image to ", post_destination_path);
-                        uploadPhoto(post_pic_path, post_destination_path);
+                        const url = await uploadPhoto(post_pic_path, post_destination_path);
 
-                        post_urls.push(post_destination_path);
+                        post_urls.push(url);
                     }
                 }
                 console.log("Post resim yolları:", post_urls);
@@ -227,7 +229,7 @@ async function populateFirestore(num_users: number, num_events: number) {
                         faker.location.longitude()
                     ),
                     hobbies: hobbiesForEvent,
-                    imagePaths: post_urls.filter((u): u is string => u !== undefined),
+                    imageUrls: post_urls.filter((u): u is string => u !== undefined),
                     participants: [],
                     emoteCounts: {},
                 }

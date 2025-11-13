@@ -7,7 +7,7 @@ type User = {
     birthdate?: Timestamp;
     gender?: string;
     organization?: string;
-    profileImagePaths?: string[];
+    profileImageUrl: string;
     bio?: string;
     permissions?: UserPermissions;
     metadata?: UserMetadata;

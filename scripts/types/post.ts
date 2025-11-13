@@ -8,7 +8,7 @@ type Post = {
     metadata: PostMetadata;
     location: GeoPoint;
     hobbies?: string[];
-    imagePaths: string[];
+    imageUrls: string[];
     participants?: string[];
     emoteCounts?: { [emote: string]: number };
 
