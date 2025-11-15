@@ -10,7 +10,9 @@ type User = {
     profileImageUrl: string;
     bio?: string;
     permissions?: UserPermissions;
-    metadata?: UserMetadata;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+    lastActiveAt?: Timestamp;
 }
 
 type UserHobby = {
@@ -31,9 +33,5 @@ type UserPermissions = {
     notificationsEnabled: boolean;
 }
 
-type UserMetadata = {
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
-    lastActiveAt?: Timestamp;
-}
-export { User, UserHobby, UserEvent, UserPermissions, UserMetadata };
+
+export { User, UserHobby, UserEvent, UserPermissions };

@@ -1,4 +1,5 @@
 import { GeoPoint } from "firebase-admin/firestore";
+import { FeedTypeEnum } from "./feed_enum";
 
 type Event = {
     eventID: string;
@@ -11,8 +12,9 @@ type Event = {
     endTime: FirebaseFirestore.Timestamp;
     location: GeoPoint;
     attributes?: EventAttributes;
-    metadata?: EventMetadata;
-
+    createdAt: FirebaseFirestore.Timestamp;
+    updatedAt: FirebaseFirestore.Timestamp;
+    feedType: FeedTypeEnum;
 }
 
 type EventAttributes = {
@@ -21,12 +23,6 @@ type EventAttributes = {
     alcoholAllowed?: boolean;
     isPublic?: boolean;
 }
-
-type EventMetadata = {
-    createdAt: FirebaseFirestore.Timestamp;
-    updatedAt: FirebaseFirestore.Timestamp;
-}
-
 type EventParticipant = {
     userID: string;
     role: string;
@@ -40,4 +36,4 @@ type Message = {
     sendTime: FirebaseFirestore.Timestamp;
 }
 
-export { Event, EventAttributes, EventMetadata, EventParticipant, Message };
+export { Event, EventAttributes, EventParticipant, Message };

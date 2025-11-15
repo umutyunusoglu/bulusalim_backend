@@ -10,6 +10,7 @@ import { start } from 'repl';
 import { Event, EventParticipant } from './types/event';
 import { Post } from './types/post';
 import { getDownloadURL } from 'firebase-admin/storage';
+import { FeedTypeEnum } from './types/feed_enum';
 dotenv.config();
 
 const serviceAccountKeyString = process.env.FIREBASE_SA_KEY;
@@ -96,12 +97,11 @@ async function populateFirestore(num_users: number, num_events: number) {
                 locationEnabled: faker.datatype.boolean(),
                 notificationsEnabled: faker.datatype.boolean(),
             },
-            metadata: {
-                // Largest possible date range
-                createdAt: admin.firestore.Timestamp.fromDate(birthdate),
-                updatedAt: admin.firestore.Timestamp.now(),
-                lastActiveAt: admin.firestore.Timestamp.now(),
-            }
+            createdAt: admin.firestore.Timestamp.fromDate(birthdate),
+            updatedAt: admin.firestore.Timestamp.now(),
+            lastActiveAt: admin.firestore.Timestamp.now(),
+
+
         };
         users.push(userData);
         await usersCollection.doc(user_id).set(userData);
@@ -141,10 +141,10 @@ async function populateFirestore(num_users: number, num_events: number) {
                 isPublic: faker.datatype.boolean(),
 
             },
-            metadata: {
-                createdAt: admin.firestore.Timestamp.now(),
-                updatedAt: admin.firestore.Timestamp.now(),
-            }
+            createdAt: admin.firestore.Timestamp.now(),
+            updatedAt: admin.firestore.Timestamp.now(),
+            feedType: FeedTypeEnum.Event,
+
         }
 
         await db.collection('events').doc(eventData.eventID).set(eventData);
@@ -219,10 +219,8 @@ async function populateFirestore(num_users: number, num_events: number) {
                     userID: participant.userID,
                     eventID: eventData.eventID,
                     title: faker.lorem.sentence(),
-                    metadata: {
-                        createdAt: admin.firestore.Timestamp.now(),
-                        updatedAt: admin.firestore.Timestamp.now(),
-                    },
+                    createdAt: admin.firestore.Timestamp.now(),
+                    updatedAt: admin.firestore.Timestamp.now(),
 
                     location: new GeoPoint(
                         faker.location.latitude(),
@@ -232,6 +230,7 @@ async function populateFirestore(num_users: number, num_events: number) {
                     imageUrls: post_urls.filter((u): u is string => u !== undefined),
                     participants: [],
                     emoteCounts: {},
+                    feedType: FeedTypeEnum.Post,
                 }
                 await db.collection('posts').doc(postData.postID).set(postData);
             }
