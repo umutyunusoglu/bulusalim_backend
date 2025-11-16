@@ -1,0 +1,19 @@
+{
+  "name": "users/becca2b3-5c0f-49aa-9567-7cc2d75b7911/profile/images/profile.jpg",
+  "bucket": "demo-project.appspot.com",
+  "metageneration": 1,
+  "generation": 1763279730897,
+  "contentType": "application/octet-stream",
+  "storageClass": "STANDARD",
+  "contentDisposition": "inline",
+  "downloadTokens": [
+    "4546fc3f-09b8-42be-8d44-a4f7dabf4e79"
+  ],
+  "etag": "0v2QNdUL02Nh19Wb7uErCeAqxYs",
+  "customMetadata": {},
+  "timeCreated": "2025-11-16T07:55:30.897Z",
+  "updated": "2025-11-16T07:55:30.897Z",
+  "size": 16582,
+  "md5Hash": "lt+rUVa5O4LCZWi1iz6UJg==",
+  "crc32c": "3143242046"
+}

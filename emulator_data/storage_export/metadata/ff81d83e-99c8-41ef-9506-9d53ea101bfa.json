@@ -1,0 +1,19 @@
+{
+  "name": "users/ceb7daf9-29ab-4a06-95fb-76ef71767609/posts/26d33938-ab70-462e-9d87-77c7de08a67f/images/0.jpg",
+  "bucket": "demo-project.appspot.com",
+  "metageneration": 1,
+  "generation": 1763279972813,
+  "contentType": "application/octet-stream",
+  "storageClass": "STANDARD",
+  "contentDisposition": "inline",
+  "downloadTokens": [
+    "84084854-74c1-4833-bac5-4f9d1965741a"
+  ],
+  "etag": "OAkia+SNvsJIonJIzJniyRf/SW0",
+  "customMetadata": {},
+  "timeCreated": "2025-11-16T07:59:32.813Z",
+  "updated": "2025-11-16T07:59:32.813Z",
+  "size": 11817,
+  "md5Hash": "M9AdS2GwWOTavOIw8JlOnQ==",
+  "crc32c": "2557766314"
+}
