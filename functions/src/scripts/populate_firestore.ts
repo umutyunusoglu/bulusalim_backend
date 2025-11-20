@@ -225,7 +225,7 @@ async function populateFirestore(num_users: number, num_events: number) {
                         postID: post_id,
                         userID: participant.userID,
                         eventID: eventData.eventID,
-                        title: faker.lorem.sentence().substring(0, 20),
+                        caption: faker.lorem.sentence().substring(0, 20),
                         createdAt: Timestamp.now(),
                         updatedAt: Timestamp.now(),
 
@@ -238,6 +238,7 @@ async function populateFirestore(num_users: number, num_events: number) {
                         participants: [],
                         emoteCounts: {},
                         feedType: FeedTypeEnum.Post,
+                        isPinned: faker.datatype.boolean(),
                     }
                     await setDoc(doc(db, "posts", postData.postID), postData);
                 }

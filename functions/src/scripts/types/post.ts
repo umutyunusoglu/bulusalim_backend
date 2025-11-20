@@ -4,7 +4,7 @@ type Post = {
     postID: string;
     userID: string;
     eventID: string;
-    title: string;
+    caption: string;
     createdAt: FirebaseFirestore.Timestamp;
     updatedAt: FirebaseFirestore.Timestamp;
     location: GeoPoint;
@@ -13,6 +13,7 @@ type Post = {
     participants?: string[];
     emoteCounts?: { [emote: string]: number };
     feedType: FeedTypeEnum;
+    isPinned: boolean;
 
 }
 
