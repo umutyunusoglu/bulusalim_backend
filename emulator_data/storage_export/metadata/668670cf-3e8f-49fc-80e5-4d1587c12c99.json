@@ -1,0 +1,19 @@
+{
+  "name": "users/fd7f7b24-9639-49c3-b77e-a116b8194552/posts/5871fbf4-fc54-4433-aa57-f1bf0d8ec57c/images/1.jpg",
+  "bucket": "demo-project.appspot.com",
+  "metageneration": 1,
+  "generation": 1763651311838,
+  "contentType": "application/octet-stream",
+  "storageClass": "STANDARD",
+  "contentDisposition": "inline",
+  "downloadTokens": [
+    "7a1bef16-1989-4648-81fb-232eed1e47e2"
+  ],
+  "etag": "xajFCuhLeqsNmd/v0pgHHCBi4Is",
+  "customMetadata": {},
+  "timeCreated": "2025-11-20T15:08:31.838Z",
+  "updated": "2025-11-20T15:08:31.838Z",
+  "size": 15640,
+  "md5Hash": "eq3rMqRvxafUUWfwjIyMMg==",
+  "crc32c": "3717561712"
+}

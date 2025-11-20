@@ -116,7 +116,7 @@ async function populateFirestore(num_users: number, num_events: number) {
     for (let j = 0; j < num_events; j++) {
         const capacity = faker.number.int({ min: 2, max: 10 });
         const joined_number = faker.number.int({ min: 2, max: capacity });
-        const participants = faker.helpers.arrayElements(users, joined_number);
+        const participant_users = faker.helpers.arrayElements(users, joined_number);
 
         const hobby_count = faker.number.int({ min: 1, max: 5 });
         const startDate = faker.date.future();
@@ -125,13 +125,19 @@ async function populateFirestore(num_users: number, num_events: number) {
         const endDate = new Date(startDate.getTime() + additionalHours * 60 * 60 * 1000);
         const endTime = Timestamp.fromDate(endDate);
         const hobbiesForEvent = faker.helpers.arrayElements(hobbies, hobby_count);
+        const participants: EventParticipant[] = participant_users.map((u) => ({
+            userID: u.userID,
+            profileImageUrl: u.profileImageUrl,
+            role: 'participant',
+            eventScore: faker.number.int({ min: 1, max: 10 }),
+        }));
 
         const eventData: Event = {
             eventID: faker.string.uuid(),
             name: faker.lorem.words(3).substring(0, 20),
             info: faker.lorem.sentence().substring(0, 20),
             hobbies: hobbiesForEvent,
-            creator: participants[0].userID,
+            creator: participants[0],
             capacity: capacity,
             startTime: startTime,
             endTime: endTime,
@@ -149,6 +155,7 @@ async function populateFirestore(num_users: number, num_events: number) {
             createdAt: Timestamp.now(),
             updatedAt: Timestamp.now(),
             feedType: FeedTypeEnum.Event,
+            participants: participants,
 
         }
 
@@ -168,12 +175,6 @@ async function populateFirestore(num_users: number, num_events: number) {
             }
             //add hobby to user if not exists else increment eventsJoined
 
-            const participantData: EventParticipant = {
-                userID: participant.userID,
-                role: k === 0 ? 'creator' : 'participant',
-                eventScore: faker.number.int({ min: 1, max: 100 }),
-            }
-            await setDoc(doc(db, "events", eventData.eventID, "participants", participant.userID), participantData);
             const userEventData: UserEvent = {
                 eventID: eventData.eventID,
                 date: startTime,
@@ -218,9 +219,10 @@ async function populateFirestore(num_users: number, num_events: number) {
                         const url = await uploadPhoto(post_destination_path);
 
                         post_urls.push(url);
-
                     }
                     console.log("Post resim yolları:", post_urls);
+
+                    const post_participants = faker.helpers.arrayElements(participants, faker.number.int({ min: 1, max: joined_number }));
                     const postData: Post = {
                         postID: post_id,
                         userID: participant.userID,
@@ -235,7 +237,7 @@ async function populateFirestore(num_users: number, num_events: number) {
                         ),
                         hobbies: hobbiesForEvent,
                         imageUrls: post_urls.filter((u): u is string => u !== undefined),
-                        participants: [],
+                        participants: post_participants.map((p) => p.userID),
                         emoteCounts: {},
                         feedType: FeedTypeEnum.Post,
                         isPinned: faker.datatype.boolean(),

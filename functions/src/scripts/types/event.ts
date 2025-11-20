@@ -6,7 +6,7 @@ type Event = {
     name: string;
     info: string;
     hobbies: string[];
-    creator: string;
+    creator: EventParticipant;
     capacity: number;
     startTime: FirebaseFirestore.Timestamp;
     endTime: FirebaseFirestore.Timestamp;
@@ -14,6 +14,7 @@ type Event = {
     attributes?: EventAttributes;
     createdAt: FirebaseFirestore.Timestamp;
     updatedAt: FirebaseFirestore.Timestamp;
+    participants: EventParticipant[];
     feedType: FeedTypeEnum;
 }
 
@@ -25,6 +26,7 @@ type EventAttributes = {
 }
 type EventParticipant = {
     userID: string;
+    profileImageUrl: string;
     role: string;
     eventScore?: number;
 }
