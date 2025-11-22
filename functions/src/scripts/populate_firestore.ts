@@ -238,7 +238,7 @@ async function populateFirestore(num_users: number, num_events: number) {
                         hobbies: hobbiesForEvent,
                         imageUrls: post_urls.filter((u): u is string => u !== undefined),
                         participants: post_participants.map((p) => ({
-                            participantID: p.userID,
+                            userID: p.userID,
                             username: p.username,
                             profileImageUrl: p.profileImageUrl,
                         })),

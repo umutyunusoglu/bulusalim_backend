@@ -18,7 +18,7 @@ type Post = {
 }
 
 type PostParticipant = {
-    participantID: string;
+    userID: string;
     username?: string;
     profileImageUrl?: string;
 }
