@@ -74,8 +74,6 @@ async function uploadPhoto(destinationPath: string) {
 
 async function populateFirestore(num_users: number, num_events: number) {
 
-
-
     var users = [];
     var events = [];
 
@@ -127,6 +125,7 @@ async function populateFirestore(num_users: number, num_events: number) {
         const hobbiesForEvent = faker.helpers.arrayElements(hobbies, hobby_count);
         const participants: EventParticipant[] = participant_users.map((u) => ({
             userID: u.userID,
+            username: u.username!,
             profileImageUrl: u.profileImageUrl,
             role: 'participant',
             eventScore: faker.number.int({ min: 1, max: 10 }),
@@ -223,6 +222,7 @@ async function populateFirestore(num_users: number, num_events: number) {
                     console.log("Post resim yolları:", post_urls);
 
                     const post_participants = faker.helpers.arrayElements(participants, faker.number.int({ min: 1, max: joined_number }));
+
                     const postData: Post = {
                         postID: post_id,
                         userID: participant.userID,
@@ -237,7 +237,11 @@ async function populateFirestore(num_users: number, num_events: number) {
                         ),
                         hobbies: hobbiesForEvent,
                         imageUrls: post_urls.filter((u): u is string => u !== undefined),
-                        participants: post_participants.map((p) => p.userID),
+                        participants: post_participants.map((p) => ({
+                            participantID: p.userID,
+                            username: p.username,
+                            profileImageUrl: p.profileImageUrl,
+                        })),
                         emoteCounts: {},
                         feedType: FeedTypeEnum.Post,
                         isPinned: faker.datatype.boolean(),

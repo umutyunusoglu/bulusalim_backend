@@ -26,6 +26,7 @@ type EventAttributes = {
 }
 type EventParticipant = {
     userID: string;
+    username?: string;
     profileImageUrl: string;
     role: string;
     eventScore?: number;

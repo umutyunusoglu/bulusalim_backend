@@ -10,13 +10,20 @@ type Post = {
     location: GeoPoint;
     hobbies?: string[];
     imageUrls: string[];
-    participants?: string[];
+    participants?: PostParticipant[];
     emoteCounts?: { [emote: string]: number };
     feedType: FeedTypeEnum;
     isPinned: boolean;
 
 }
 
-export { Post };
+type PostParticipant = {
+    participantID: string;
+    username?: string;
+    profileImageUrl?: string;
+}
+
+export { Post, PostParticipant };
+
 
 
