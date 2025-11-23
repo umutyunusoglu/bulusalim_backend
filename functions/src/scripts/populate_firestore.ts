@@ -90,7 +90,7 @@ async function populateFirestore(num_users: number, num_events: number) {
         const userData: User = {
             userID: user_id,
             email: `kullanici${i + 1}@example.com`,
-            birthdate: Timestamp.fromDate(birthdate),
+            birthDate: Timestamp.fromDate(birthdate),
             gender: faker.person.sexType(),
             organization: faker.company.name(),
             bio: faker.lorem.sentence(),
