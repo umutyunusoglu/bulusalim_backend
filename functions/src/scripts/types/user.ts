@@ -4,7 +4,7 @@ type User = {
     userID: string;
     email?: string;
     username?: string;
-    birthdate?: Timestamp;
+    birthDate?: Timestamp;
     gender?: string;
     organization?: string;
     profileImageUrl: string;
