@@ -25,7 +25,7 @@ import {
 } from "firebase/storage";
 
 import { Event, EventParticipant } from "./types/event";
-import { Post } from "./types/post";
+import { Post, PinnedPost } from "./types/post";
 import { UserEvent } from "./types/user";
 import { FeedTypeEnum } from "./types/feed_enum";
 import { faker } from "@faker-js/faker";
@@ -225,7 +225,11 @@ async function populateFirestore(num_users: number, num_events: number) {
 
                     const postData: Post = {
                         postID: post_id,
-                        userID: participant.userID,
+                        creator: {
+                            userID: participant.userID,
+                            username: participant.username,
+                            profileImageUrl: participant.profileImageUrl,
+                        },
                         eventID: eventData.eventID,
                         caption: faker.lorem.sentence().substring(0, 20),
                         createdAt: Timestamp.now(),
@@ -244,25 +248,41 @@ async function populateFirestore(num_users: number, num_events: number) {
                         })),
                         emoteCounts: {},
                         feedType: FeedTypeEnum.Post,
-                        isPinned: faker.datatype.boolean(),
                     }
+
+
                     await setDoc(doc(db, "posts", postData.postID), postData);
+
+                    const isPinned = faker.datatype.boolean();
+                    if (isPinned) {
+                        const pinnedPostData: PinnedPost = {
+                            postID: postData.postID,
+                            caption: postData.caption,
+                            location: postData.location,
+                            imageUrls: postData.imageUrls,
+                            participants: postData.participants,
+                            emoteCounts: postData.emoteCounts,
+                            createdAt: postData.createdAt,
+                        }
+                        await setDoc(doc(db, "users", participant.userID, "pinnedPosts", postData.postID), pinnedPostData);
+
+                    }
+
+                }
+
+                const messageCount = faker.number.int({ min: 1, max: 20 });
+                for (let m = 0; m < messageCount; m++) {
+                    const sender_id = participants[faker.number.int({ min: 0, max: joined_number - 1 })].userID;
+                    const messageData = {
+                        messageId: faker.string.uuid(),
+                        content: faker.lorem.sentence(),
+                        sender: sender_id,
+                        sendTime: Timestamp.now(),
+                    }
+                    await setDoc(doc(db, "events", eventData.eventID, "messages", messageData.messageId), messageData);
                 }
 
             }
-
-            const messageCount = faker.number.int({ min: 1, max: 20 });
-            for (let m = 0; m < messageCount; m++) {
-                const sender_id = participants[faker.number.int({ min: 0, max: joined_number - 1 })].userID;
-                const messageData = {
-                    messageId: faker.string.uuid(),
-                    content: faker.lorem.sentence(),
-                    sender: sender_id,
-                    sendTime: Timestamp.now(),
-                }
-                await setDoc(doc(db, "events", eventData.eventID, "messages", messageData.messageId), messageData);
-            }
-
         }
     }
 }

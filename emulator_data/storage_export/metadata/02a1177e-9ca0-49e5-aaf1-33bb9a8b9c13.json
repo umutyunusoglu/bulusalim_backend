@@ -1,0 +1,19 @@
+{
+  "name": "users/e480f5da-1103-4819-9b3a-ee3b8609bdf7/posts/d5434ff4-0e35-4a90-832f-dc94e38eb4c7/images/0.jpg",
+  "bucket": "demo-project.appspot.com",
+  "metageneration": 1,
+  "generation": 1763984764520,
+  "contentType": "application/octet-stream",
+  "storageClass": "STANDARD",
+  "contentDisposition": "inline",
+  "downloadTokens": [
+    "f87b0d4d-f5fd-4ea5-beaf-3006b3aff27a"
+  ],
+  "etag": "1Gs1nYS8oG4aV7zoFj7Bu/TVPLE",
+  "customMetadata": {},
+  "timeCreated": "2025-11-24T11:46:04.520Z",
+  "updated": "2025-11-24T11:46:04.520Z",
+  "size": 30234,
+  "md5Hash": "BkOfg38pXQa7T8FdQcgBqA==",
+  "crc32c": "3837322751"
+}

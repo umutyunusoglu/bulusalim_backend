@@ -2,7 +2,7 @@ import { GeoPoint } from "firebase-admin/firestore";
 import { FeedTypeEnum } from "./feed_enum.js";
 type Post = {
     postID: string;
-    userID: string;
+    creator: PostParticipant;
     eventID: string;
     caption: string;
     createdAt: FirebaseFirestore.Timestamp;
@@ -13,9 +13,21 @@ type Post = {
     participants?: PostParticipant[];
     emoteCounts?: { [emote: string]: number };
     feedType: FeedTypeEnum;
-    isPinned: boolean;
 
 }
+
+type PinnedPost = {
+
+    postID: string;
+    caption: string;
+    location: GeoPoint;
+    imageUrls: string[];
+    participants?: PostParticipant[];
+    emoteCounts?: { [emote: string]: number };
+    createdAt: FirebaseFirestore.Timestamp;
+}
+
+
 
 type PostParticipant = {
     userID: string;
@@ -23,7 +35,7 @@ type PostParticipant = {
     profileImageUrl?: string;
 }
 
-export { Post, PostParticipant };
+export { Post, PostParticipant, PinnedPost };
 
 
 
