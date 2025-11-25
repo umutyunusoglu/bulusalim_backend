@@ -26,6 +26,8 @@ type UserEvent = {
     eventID: string;
     date: Timestamp;
     role: string;
+    status?: string;
+    pinned?: boolean;
 }
 
 type UserPermissions = {

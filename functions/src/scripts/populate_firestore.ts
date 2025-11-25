@@ -178,7 +178,11 @@ async function populateFirestore(num_users: number, num_events: number) {
                 eventID: eventData.eventID,
                 date: startTime,
                 role: k === 0 ? 'creator' : 'participant',
+                status: faker.helpers.arrayElement(['upcoming', 'ongoing', 'completed', 'cancelled']), //Problematik
+                pinned: faker.datatype.boolean(),
+
             }
+
             await setDoc(doc(db, "users", participant.userID, "events", eventData.eventID), userEventData);
 
             for (const hobby of hobbiesForEvent) {
