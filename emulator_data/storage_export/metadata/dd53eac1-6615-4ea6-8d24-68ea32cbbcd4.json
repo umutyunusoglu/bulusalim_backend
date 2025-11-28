@@ -1,0 +1,19 @@
+{
+  "name": "users/07a03a19-6c30-4284-be14-4676fde2b161/posts/849e91a6-3e5e-45f3-a748-d56f1ece4847/images/0.jpg",
+  "bucket": "demo-project.appspot.com",
+  "metageneration": 1,
+  "generation": 1764321104964,
+  "contentType": "application/octet-stream",
+  "storageClass": "STANDARD",
+  "contentDisposition": "inline",
+  "downloadTokens": [
+    "5ef9b249-4e29-404a-aac0-4278204b123a"
+  ],
+  "etag": "DMZ+HnJzr2miNsLqj6LKENcNlSI",
+  "customMetadata": {},
+  "timeCreated": "2025-11-28T09:11:44.964Z",
+  "updated": "2025-11-28T09:11:44.964Z",
+  "size": 21238,
+  "md5Hash": "JVcs8zUiC9qvsIv5AkHQSQ==",
+  "crc32c": "988869166"
+}

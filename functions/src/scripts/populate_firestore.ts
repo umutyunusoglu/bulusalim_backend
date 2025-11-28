@@ -103,9 +103,7 @@ async function populateFirestore(num_users: number, num_events: number) {
             createdAt: Timestamp.fromDate(birthdate),
             updatedAt: Timestamp.now(),
             lastActiveAt: Timestamp.now(),
-
-
-
+            hobbies: [],
         };
         users.push(userData);
         await setDoc(doc(db, "users", user_id), userData);
@@ -185,6 +183,8 @@ async function populateFirestore(num_users: number, num_events: number) {
             }
 
             await setDoc(doc(db, "users", participant.userID, "eventHistory", eventData.eventID), userEventData);
+            const userRef = doc(db, "users", participant.userID);
+            const hobby_list = [];
 
             for (const hobby of hobbiesForEvent) {
                 const userHobbyRef = doc(collection(db, "users", participant.userID, "hobbies"), hobby);
@@ -205,8 +205,13 @@ async function populateFirestore(num_users: number, num_events: number) {
                     await setDoc(userHobbyRef, {
                         hobbyId: hobby,
                         eventsJoined: 1,
+                        hobbyRating: faker.number.int({ min: 1, max: 10 }),
+                        badgeLevel: faker.helpers.arrayElement(['bronze', 'silver', 'gold', 'platinum']),
                     });
+                    hobby_list.push(hobby);
+
                 }
+
 
 
                 const sendPost = faker.datatype.boolean();
@@ -288,6 +293,10 @@ async function populateFirestore(num_users: number, num_events: number) {
                 }
 
             }
+            await updateDoc(userRef, {
+                hobbies: hobby_list,
+            });
+
         }
     }
 }
