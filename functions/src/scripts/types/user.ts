@@ -37,7 +37,13 @@ type UserPermissions = {
     notificationsEnabled: boolean;
 }
 
+type Friend = {
+    userID: string;
+    username: string;
+    profileImageUrl: string;
+    createdAt: Timestamp;
+}
 
-export { User, UserHobby, UserEvent, UserPermissions };
 
+export { User, UserHobby, UserEvent, UserPermissions, Friend };
 

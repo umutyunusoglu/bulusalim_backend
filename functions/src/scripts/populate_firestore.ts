@@ -109,6 +109,44 @@ async function populateFirestore(num_users: number, num_events: number) {
         await setDoc(doc(db, "users", user_id), userData);
         console.log(`Kullanıcı eklendi: ${user_id}`);
     }
+
+    //Create relationships between users
+    for (let i = 0; i < num_users; i++) {
+        const user = users[i];
+        const others = users.filter(u => u.userID !== user.userID);
+
+        // Pick random followees for this user
+        const followees = faker.helpers.arrayElements(others);
+
+        for (const followee of followees) {
+            const followeeData = {
+                userID: followee.userID,
+                username: followee.username!,
+                profileImageUrl: followee.profileImageUrl,
+                createdAt: Timestamp.now(),
+            };
+
+            const followerData = {
+                userID: user.userID,
+                username: user.username!,
+                profileImageUrl: user.profileImageUrl,
+                createdAt: Timestamp.now(),
+            };
+
+            // user → followee
+            await setDoc(
+                doc(db, "users", user.userID, "followees", followee.userID),
+                followeeData
+            );
+
+            // followee → follower (reverse link)
+            await setDoc(
+                doc(db, "users", followee.userID, "followers", user.userID),
+                followerData
+            );
+        }
+    }
+
     // Create events
     for (let j = 0; j < num_events; j++) {
         const capacity = faker.number.int({ min: 2, max: 10 });

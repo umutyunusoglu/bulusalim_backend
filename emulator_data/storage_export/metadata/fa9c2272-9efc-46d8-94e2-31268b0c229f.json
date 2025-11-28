@@ -1,0 +1,19 @@
+{
+  "name": "users/71cbb1de-bc77-4bb5-82c7-af54c1b05047/posts/3df7af3f-c041-4263-9fdd-0d3ca0e3fe2c/images/0.jpg",
+  "bucket": "demo-project.appspot.com",
+  "metageneration": 1,
+  "generation": 1764342583434,
+  "contentType": "application/octet-stream",
+  "storageClass": "STANDARD",
+  "contentDisposition": "inline",
+  "downloadTokens": [
+    "54fe49ac-5baa-4764-b432-f0ea7ba8684f"
+  ],
+  "etag": "LSxEVO/PxlwX9PF2kP6x0Da/mQ4",
+  "customMetadata": {},
+  "timeCreated": "2025-11-28T15:09:43.434Z",
+  "updated": "2025-11-28T15:09:43.434Z",
+  "size": 28263,
+  "md5Hash": "JbR6voBxKR3DYEvtYG6phw==",
+  "crc32c": "3276395824"
+}

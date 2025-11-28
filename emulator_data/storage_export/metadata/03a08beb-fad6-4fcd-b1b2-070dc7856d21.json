@@ -1,0 +1,19 @@
+{
+  "name": "users/b6f490e7-8865-4243-bd4c-98c4ba3973cd/posts/7e62eff1-36e4-4731-89e3-963c7efc08a1/images/1.jpg",
+  "bucket": "demo-project.appspot.com",
+  "metageneration": 1,
+  "generation": 1764342501340,
+  "contentType": "application/octet-stream",
+  "storageClass": "STANDARD",
+  "contentDisposition": "inline",
+  "downloadTokens": [
+    "ff7d8c18-beb1-49ea-9f35-7c19956ffd8b"
+  ],
+  "etag": "REWE/UU5yrdvX2KFpSYOG5BN5c4",
+  "customMetadata": {},
+  "timeCreated": "2025-11-28T15:08:21.340Z",
+  "updated": "2025-11-28T15:08:21.340Z",
+  "size": 25820,
+  "md5Hash": "E3MVyUpTpnKAwpp+dFLFMQ==",
+  "crc32c": "87972562"
+}

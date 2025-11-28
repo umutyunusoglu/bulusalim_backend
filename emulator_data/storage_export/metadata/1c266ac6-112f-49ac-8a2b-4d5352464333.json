@@ -1,0 +1,19 @@
+{
+  "name": "users/ca06f0ac-b938-4763-8725-76cf182aa38d/profile/images/profile.jpg",
+  "bucket": "demo-project.appspot.com",
+  "metageneration": 1,
+  "generation": 1764341863716,
+  "contentType": "application/octet-stream",
+  "storageClass": "STANDARD",
+  "contentDisposition": "inline",
+  "downloadTokens": [
+    "657b1725-16dc-478f-941e-e8525dc92bd2"
+  ],
+  "etag": "5kpneJGS+CvHSomich91S//gymo",
+  "customMetadata": {},
+  "timeCreated": "2025-11-28T14:57:43.716Z",
+  "updated": "2025-11-28T14:57:43.716Z",
+  "size": 25353,
+  "md5Hash": "bn57eHkw/Lb9mNUDlyO8fA==",
+  "crc32c": "2325744255"
+}
