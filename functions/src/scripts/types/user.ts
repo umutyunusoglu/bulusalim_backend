@@ -12,6 +12,8 @@ type User = {
     permissions?: UserPermissions;
     createdAt: Timestamp;
     updatedAt: Timestamp;
+    hobbies?: UserHobby[];
+    events?: UserEvent[];
     lastActiveAt?: Timestamp;
 }
 

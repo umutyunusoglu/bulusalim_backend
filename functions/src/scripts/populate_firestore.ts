@@ -105,6 +105,7 @@ async function populateFirestore(num_users: number, num_events: number) {
             lastActiveAt: Timestamp.now(),
 
 
+
         };
         users.push(userData);
         await setDoc(doc(db, "users", user_id), userData);
@@ -183,7 +184,7 @@ async function populateFirestore(num_users: number, num_events: number) {
 
             }
 
-            await setDoc(doc(db, "users", participant.userID, "events", eventData.eventID), userEventData);
+            await setDoc(doc(db, "users", participant.userID, "eventHistory", eventData.eventID), userEventData);
 
             for (const hobby of hobbiesForEvent) {
                 const userHobbyRef = doc(collection(db, "users", participant.userID, "hobbies"), hobby);
