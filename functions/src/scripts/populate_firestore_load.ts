@@ -296,6 +296,8 @@ async function populateFirestore(num_users: number, num_events: number) {
                         })),
                         emoteCounts: {},
                         feedType: FeedTypeEnum.Post,
+                        showParticipants: faker.datatype.boolean(),
+                        includeInDump: faker.datatype.boolean(),
                     }
 
 

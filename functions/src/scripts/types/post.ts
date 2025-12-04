@@ -13,6 +13,8 @@ type Post = {
     participants?: PostParticipant[];
     emoteCounts?: { [emote: string]: number };
     feedType: FeedTypeEnum;
+    showParticipants: boolean;
+    includeInDump: boolean;
 
 }
 
