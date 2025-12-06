@@ -5,6 +5,7 @@ import {
     setDoc,
     doc,
     Timestamp,
+    GeoPoint
 } from "firebase/firestore";
 
 import {
@@ -12,6 +13,7 @@ import {
     connectAuthEmulator,
     createUserWithEmailAndPassword,
     updateProfile,
+    signInWithEmailAndPassword
 } from "firebase/auth";
 
 import {
@@ -23,10 +25,14 @@ import {
 } from "firebase/storage";
 
 import { faker } from "@faker-js/faker";
-import { User } from "./types/user";
+import { User, UserEvent } from "./types/user";
+import { Event, EventParticipant } from "./types/event";
+import { FeedTypeEnum } from "./types/feed_enum"; // Enum dosyanızdan
+// Eğer enum dosyanız yoksa buraya const olarak tanımlayabilirsiniz:
+// const FeedTypeEnum = { Event: 'event', Post: 'post' };
 
 // ------------------------------
-// Firebase Client SDK
+// Firebase Client SDK Setup
 // ------------------------------
 
 const firebaseConfig = {
@@ -36,22 +42,24 @@ const firebaseConfig = {
     storageBucket: "demo-project.appspot.com",
 };
 
-// Initialize Client SDK
 const app = initializeApp(firebaseConfig);
-
 const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
 
-// Connect Emulators
 connectFirestoreEmulator(db, "localhost", 8080);
 connectAuthEmulator(auth, "http://localhost:9099");
 connectStorageEmulator(storage, "localhost", 9199);
 
-console.log("Client SDK ve Emülatörler başlatıldı.");
+console.log("SDK Başlatıldı.");
+
+// ------------------------------
+// Yardımcı Fonksiyonlar
+// ------------------------------
 
 async function uploadPhoto(destinationPath: string) {
-    const src = "https://picsum.photos/361/361";
+    // Rastgele doğa/şehir resmi
+    const src = `https://picsum.photos/400/400?random=${Math.random()}`;
     try {
         const res = await fetch(src);
         const buffer = Buffer.from(await res.arrayBuffer());
@@ -59,145 +67,200 @@ async function uploadPhoto(destinationPath: string) {
         await uploadBytes(storageRef, buffer);
         return await getDownloadURL(storageRef);
     } catch (e) {
-        console.warn("Fotoğraf yüklenemedi, placeholder kullanılıyor.", e);
         return "https://via.placeholder.com/150";
     }
 }
 
-// İki kullanıcıyı karşılıklı arkadaş yapan fonksiyon
 async function makeFriends(user1: User, user2: User) {
     const commonData = { createdAt: Timestamp.now() };
-
-    // 1. User1 -> User2 (Followees)
+    // Çift yönlü takip
     await setDoc(doc(db, "users", user1.userID, "followees", user2.userID), {
-        userID: user2.userID,
-        username: user2.username,
-        profileImageUrl: user2.profileImageUrl,
-        ...commonData
+        userID: user2.userID, username: user2.username, profileImageUrl: user2.profileImageUrl, ...commonData
     });
-
-    // 2. User2 -> User1 (Followers)
     await setDoc(doc(db, "users", user2.userID, "followers", user1.userID), {
-        userID: user1.userID,
-        username: user1.username,
-        profileImageUrl: user1.profileImageUrl,
-        ...commonData
+        userID: user1.userID, username: user1.username, profileImageUrl: user1.profileImageUrl, ...commonData
     });
-
-    // 3. User2 -> User1 (Followees)
     await setDoc(doc(db, "users", user2.userID, "followees", user1.userID), {
-        userID: user1.userID,
-        username: user1.username,
-        profileImageUrl: user1.profileImageUrl,
-        ...commonData
+        userID: user1.userID, username: user1.username, profileImageUrl: user1.profileImageUrl, ...commonData
     });
-
-    // 4. User1 -> User2 (Followers)
     await setDoc(doc(db, "users", user1.userID, "followers", user2.userID), {
-        userID: user2.userID,
-        username: user2.username,
-        profileImageUrl: user2.profileImageUrl,
-        ...commonData
+        userID: user2.userID, username: user2.username, profileImageUrl: user2.profileImageUrl, ...commonData
     });
-
-    console.log(`${user1.username} ve ${user2.username} arkadaş oldu.`);
+    console.log(`Arkadaşlık: ${user1.username} <-> ${user2.username}`);
 }
+
+// Özel Etkinlik Oluşturucu Fonksiyon
+async function createSpecificEvent(
+    title: string,
+    creatorUser: User,
+    participantsUsers: User[],
+    startTimeDate: Date,
+    durationHours: number,
+    status: 'upcoming' | 'ongoing' | 'completed'
+) {
+    const eventID = faker.string.uuid();
+    const endTimeDate = new Date(startTimeDate.getTime() + durationHours * 60 * 60 * 1000);
+
+    // Katılımcı listesini hazırla
+    const participantsData: EventParticipant[] = participantsUsers.map(u => ({
+        userID: u.userID,
+        username: u.username!,
+        profileImageUrl: u.profileImageUrl,
+        role: u.userID === creatorUser.userID ? 'creator' : 'participant',
+        eventScore: 0
+    }));
+
+    const eventData: Event = {
+        eventID: eventID,
+        name: title,
+        info: faker.lorem.sentence(),
+        hobbies: ["coding", "coffee"], // Örnek hobi
+        creator: participantsData.find(p => p.userID === creatorUser.userID)!,
+        capacity: 10,
+        startTime: Timestamp.fromDate(startTimeDate),
+        endTime: Timestamp.fromDate(endTimeDate),
+        location: new GeoPoint(41.0082, 28.9784), // İstanbul
+        attributes: { price: 0, smokingAllowed: false, alcoholAllowed: true, isPublic: true },
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        feedType: FeedTypeEnum.Event, // Veya 'event' string
+        participants: participantsData
+    };
+
+    // 1. Etkinliği 'events' koleksiyonuna yaz
+    await setDoc(doc(db, "events", eventID), eventData);
+    console.log(`Etkinlik Oluşturuldu: "${title}" (ID: ${eventID}) - Durum: ${status}`);
+
+    // 2. Her kullanıcının 'eventHistory' subcollection'ına yaz
+    for (const participant of participantsUsers) {
+        const userEventData: UserEvent = {
+            eventID: eventID,
+            date: Timestamp.fromDate(startTimeDate),
+            role: participant.userID === creatorUser.userID ? 'creator' : 'participant',
+            status: status, // ongoing, upcoming vs.
+            pinned: false
+        };
+        await setDoc(doc(db, "users", participant.userID, "eventHistory", eventID), userEventData);
+    }
+}
+
+// ------------------------------
+// Ana Populate Fonksiyonu
+// ------------------------------
 
 async function populateFirestoreAndAuth() {
     const users: User[] = [];
     const num_users = 5;
     const defaultPassword = "123456";
 
-    console.log(`--- ${num_users} Kullanıcı Auth ve Firestore'a Kaydediliyor ---`);
+    console.log(`--- ${num_users} Kullanıcı Oluşturuluyor ---`);
 
     for (let i = 0; i < num_users; i++) {
         const email = `user${i + 1}@example.com`;
-        const username = faker.internet.username() + faker.number.int({ min: 1, max: 100 });
-        const birthdate = faker.date.birthdate({ min: 18, max: 65, mode: 'age' });
+        const username = `User_${i + 1}_${faker.word.adjective()}`;
 
         let uid = "";
         let photoUrl = "";
 
         try {
-            // 1. Authentication'da Kullanıcı Oluştur
-            // Client SDK kullandığımız için bu işlem otomatik olarak "Sign In" yapar.
+            // Auth oluştur
             const userCredential = await createUserWithEmailAndPassword(auth, email, defaultPassword);
-            const authUser = userCredential.user;
-            uid = authUser.uid; // Auth tarafından verilen UID'yi alıyoruz.
+            uid = userCredential.user.uid;
 
-            // Fotoğraf yükle
-            const destination_path = `users/${uid}/profile/images/profile.jpg`;
-            photoUrl = await uploadPhoto(destination_path);
+            // Foto yükle ve Profil güncelle
+            photoUrl = await uploadPhoto(`users/${uid}/profile.jpg`);
+            await updateProfile(userCredential.user, { displayName: username, photoURL: photoUrl });
 
-            // 2. Auth Profilini Güncelle (DisplayName ve PhotoURL)
-            await updateProfile(authUser, {
-                displayName: username,
-                photoURL: photoUrl
-            });
-
-            console.log(`Auth Created: ${email} (UID: ${uid})`);
-
-        } catch (error: any) {
-            console.error(`Hata oluştu (${email}):`, error.message);
-            continue; // Hata varsa bu kullanıcıyı atla
+        } catch (e: any) {
+            console.log(`Kullanıcı ${email} zaten var olabilir veya hata:`, e.message);
+            // Varolanı login yapıp bilgilerini alalım (Script tekrar çalışırsa diye)
+            try {
+                const loginCred = await signInWithEmailAndPassword(auth, email, defaultPassword);
+                uid = loginCred.user.uid;
+                photoUrl = loginCred.user.photoURL || "https://via.placeholder.com/150";
+            } catch (loginErr) {
+                continue;
+            }
         }
 
-        // 3. Firestore Verisini Hazırla (Auth'tan gelen UID ile)
         const userData: User = {
-            userID: uid, // ÖNEMLİ: Auth UID ile aynı olmalı
+            userID: uid,
             email: email,
-            birthDate: Timestamp.fromDate(birthdate),
-            gender: faker.person.sexType(),
-            organization: faker.company.name(),
-            bio: faker.lorem.sentence(),
+            birthDate: Timestamp.fromDate(faker.date.birthdate({ min: 20, max: 30, mode: 'age' })),
+            gender: 'other',
             username: username,
             profileImageUrl: photoUrl,
-            permissions: {
-                locationEnabled: true,
-                notificationsEnabled: true,
-            },
-            createdAt: Timestamp.fromDate(birthdate),
+            permissions: { locationEnabled: true, notificationsEnabled: true },
+            createdAt: Timestamp.now(),
             updatedAt: Timestamp.now(),
             lastActiveAt: Timestamp.now(),
             hobbies: [],
+            // Diğer zorunlu alanlar...
         };
 
-        // 4. Firestore'a Yaz
         users.push(userData);
         await setDoc(doc(db, "users", uid), userData);
-        console.log(`Firestore Document Created: users/${uid}`);
-
-        // Client SDK ile döngü içinde create yaparken session karışabilir,
-        // ancak script ortamında her create yeni session açar, sorun olmaz.
-        // Yine de temizlik için sign out diyebiliriz ama gerekli değil.
+        console.log(`User ${i + 1} Hazır: ${uid}`);
     }
 
-    console.log("--- İlişkiler Kuruluyor ---");
-
-    if (users.length === 5) {
-        // Grup A: User 1 & User 2
-        await makeFriends(users[0], users[1]);
-
-        // Grup B: User 3 & User 4
-        await makeFriends(users[2], users[3]);
-
-        // Connector: User 5 herkesle arkadaş
-        await makeFriends(users[4], users[0]);
-        await makeFriends(users[4], users[1]);
-        await makeFriends(users[4], users[2]);
-        await makeFriends(users[4], users[3]);
-    } else {
-        console.warn("Yeterli kullanıcı oluşturulamadı, ilişkiler atlanıyor.");
+    if (users.length < 5) {
+        console.error("Yeterli kullanıcı yok, iptal ediliyor.");
+        return;
     }
 
-    console.log("--- İşlem Tamamlandı ---");
-    console.log(`Test için giriş yapabilirsiniz -> Email: user1@example.com, Şifre: ${defaultPassword}`);
+    console.log("\n--- Arkadaşlıklar Kuruluyor ---");
+    // Grup A: 1 & 2
+    await makeFriends(users[0], users[1]);
+    // Grup B: 3 & 4
+    await makeFriends(users[2], users[3]);
+    // Connector: 5 herkesle
+    users.slice(0, 4).forEach(async u => await makeFriends(users[4], u));
+
+
+    console.log("\n--- Etkinlik Senaryoları Ekleniyor ---");
+
+    const now = new Date();
+
+    // SENARYO 1: User 1 ve User 2 AKTİF etkinlikte
+    // Başlangıç: 1 saat önce, Bitiş: 2 saat sonra
+    const activeStartTime = new Date(now.getTime() - 1 * 60 * 60 * 1000);
+    await createSpecificEvent(
+        "Akşam Kahvesi Sohbeti", // Başlık
+        users[0], // Creator: User 1
+        [users[0], users[1]], // Katılımcılar: User 1, User 2
+        activeStartTime,
+        3, // 3 saatlik etkinlik (biri geçmiş, ikisi gelecek)
+        'ongoing' // STATUS
+    );
+
+    // SENARYO 2: User 3 ve User 4 GELECEK etkinlikte
+    // Başlangıç: Yarın bu saatte
+    const futureStartTime1 = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    await createSpecificEvent(
+        "Haftasonu Koşusu",
+        users[2], // Creator: User 3
+        [users[2], users[3]], // Katılımcılar: User 3, User 4
+        futureStartTime1,
+        2, // 2 saatlik
+        'upcoming'
+    );
+
+    // SENARYO 3: User 1, 2 ve 3 GELECEK etkinlikte (Daha ileri tarih)
+    // Başlangıç: 3 Gün sonra
+    const futureStartTime2 = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    await createSpecificEvent(
+        "Büyük Buluşma Partisi",
+        users[1], // Creator: User 2
+        [users[0], users[1], users[2]], // Katılımcılar: User 1, 2, 3
+        futureStartTime2,
+        5,
+        'upcoming'
+    );
+
+    console.log("\n--- TÜM İŞLEMLER TAMAMLANDI ---");
+    console.log(`User 1 (${users[0].email}) ile giriş yapıp 'ongoing' etkinliği görebilirsin.`);
 }
 
-async function main() {
-    await populateFirestoreAndAuth();
-    console.log("Script başarıyla sonlandı.");
-    process.exit(0);
-}
-
-main();
+populateFirestoreAndAuth().then(() => {
+    // process.exit(0); // Emulator bağlantısını kesmemesi için bazen açık bırakmak gerekebilir ama CLI run için exit iyidir.
+});
