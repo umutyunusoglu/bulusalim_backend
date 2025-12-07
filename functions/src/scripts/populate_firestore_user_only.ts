@@ -39,7 +39,7 @@ const firebaseConfig = {
     apiKey: "fake-api-key",
     authDomain: "localhost",
     projectId: "bulusalim-e8e7c",
-    storageBucket: "demo-project.appspot.com",
+    storageBucket: "bulusalim-e8e7c.firebasestorage.app",
 };
 
 const app = initializeApp(firebaseConfig);
@@ -168,7 +168,7 @@ async function populateFirestoreAndAuth() {
             uid = userCredential.user.uid;
 
             // Foto yükle ve Profil güncelle
-            photoUrl = await uploadPhoto(`users/${uid}/profile.jpg`);
+            photoUrl = await uploadPhoto(`private/users/${uid}/profile.jpg`);
             await updateProfile(userCredential.user, { displayName: username, photoURL: photoUrl });
 
         } catch (e: any) {
@@ -262,5 +262,5 @@ async function populateFirestoreAndAuth() {
 }
 
 populateFirestoreAndAuth().then(() => {
-    // process.exit(0); // Emulator bağlantısını kesmemesi için bazen açık bırakmak gerekebilir ama CLI run için exit iyidir.
+    process.exit(0); // Emulator bağlantısını kesmemesi için bazen açık bırakmak gerekebilir ama CLI run için exit iyidir.
 });

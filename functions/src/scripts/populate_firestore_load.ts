@@ -40,7 +40,7 @@ const firebaseConfig = {
     apiKey: "fake-api-key",
     authDomain: "localhost",
     projectId: "bulusalim-e8e7c",
-    storageBucket: "demo-project.appspot.com",
+    storageBucket: "bulusalim-e8e7c.firebasestorage.app",
 };
 
 // Initialize Client SDK
@@ -83,7 +83,7 @@ async function populateFirestore(num_users: number, num_events: number) {
 
         var birthdate = faker.date.birthdate({ min: 18, max: 65, mode: 'age' });
         var user_id = faker.string.uuid();
-        const destination_path = `users/${user_id}/profile/images/profile.jpg`;
+        const destination_path = `private/users/${user_id}/profile/images/profile.jpg`;
 
         const url = await uploadPhoto(destination_path);
 
@@ -261,7 +261,7 @@ async function populateFirestore(num_users: number, num_events: number) {
 
                     for (let p = 0; p < num_pics; p++) {
 
-                        const post_destination_path = `users/${participant.userID}/posts/${post_id}/images/${p}.jpg`;
+                        const post_destination_path = `private/users/${participant.userID}/posts/${post_id}/images/${p}.jpg`;
                         console.log("uploading image to ", post_destination_path);
                         const url = await uploadPhoto(post_destination_path);
 
