@@ -1,4 +1,3 @@
-import { GeoPoint } from "firebase-admin/firestore";
 import { FeedTypeEnum } from "./feed_enum";
 
 type Event = {
@@ -10,7 +9,10 @@ type Event = {
     capacity: number;
     startTime: FirebaseFirestore.Timestamp;
     endTime: FirebaseFirestore.Timestamp;
-    location: GeoPoint;
+    location: {
+        longitude: number;
+        latitude: number;
+    };
     attributes?: EventAttributes;
     createdAt: FirebaseFirestore.Timestamp;
     updatedAt: FirebaseFirestore.Timestamp;

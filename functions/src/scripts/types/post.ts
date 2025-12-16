@@ -1,4 +1,3 @@
-import { GeoPoint } from "firebase-admin/firestore";
 import { FeedTypeEnum } from "./feed_enum.js";
 type Post = {
     postID: string;
@@ -7,7 +6,10 @@ type Post = {
     caption: string;
     createdAt: FirebaseFirestore.Timestamp;
     updatedAt: FirebaseFirestore.Timestamp;
-    location: GeoPoint;
+    location: {
+        longitude: number;
+        latitude: number;
+    };
     hobbies?: string[];
     imageUrls: string[];
     participants?: PostParticipant[];
@@ -22,7 +24,10 @@ type PinnedPost = {
 
     postID: string;
     caption: string;
-    location: GeoPoint;
+    location: {
+        longitude: number;
+        latitude: number;
+    };
     imageUrls: string[];
     participants?: PostParticipant[];
     emoteCounts?: { [emote: string]: number };
