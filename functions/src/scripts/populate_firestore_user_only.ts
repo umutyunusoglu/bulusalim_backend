@@ -148,23 +148,19 @@ async function addSavedEventToUser(user: User, index: number) {
     const eventID = faker.string.uuid();
     const title = `SAVED_Event_${index}_For_${user.username}`;
 
-    // Create random future dates using Faker, then convert to Firestore Timestamp
     const futureDate = faker.date.future();
-    const futureEndDate = new Date(futureDate.getTime() + 2 * 60 * 60 * 1000); // 2 hours later
+    const futureEndDate = new Date(futureDate.getTime() + 2 * 60 * 60 * 1000);
 
     const eventData: Event = {
         eventID: eventID,
         name: title,
         info: "This is a dummy saved event for debugging.",
         hobbies: ["saved_hobby"],
-        creator: { userID: 'random', username: 'random', profileImageUrl: '', role: 'creator', eventScore: 10 },
+        // For saved events, we can assign a dummy creator or use a real one
+        creator: { userID: 'system', username: 'System', profileImageUrl: '', role: 'creator', eventScore: 10 },
         capacity: 100,
-
-        // --- FIX IS HERE ---
         startTime: Timestamp.fromDate(futureDate),
         endTime: Timestamp.fromDate(futureEndDate),
-        // -------------------
-
         location: { "longitude": 28.9784, "latitude": 41.0082 },
         attributes: { price: 50, smokingAllowed: true, alcoholAllowed: true, isPublic: true },
         createdAt: Timestamp.now(),
@@ -173,11 +169,20 @@ async function addSavedEventToUser(user: User, index: number) {
         participants: []
     };
 
-    // Write to root events
+    // 1. Write the actual Event document to the root collection
     await setDoc(doc(db, "events", eventID), eventData);
 
-    // Write to user savedEvents
-    await setDoc(doc(db, "users", user.userID, "savedEvents", eventID), eventData);
+    // 2. Prepare the UserEvent metadata with status "saved"
+    const userEventData: UserEvent = {
+        eventID: eventID,
+        date: Timestamp.fromDate(futureDate),
+        role: 'participant', // Typically a saver is a potential participant
+        status: 'saved',     // <--- Status set to "saved" here
+        pinned: false
+    };
+
+    // 3. Write to user's eventHistory subcollection
+    await setDoc(doc(db, "users", user.userID, "eventHistory", eventID), userEventData);
 }
 async function createSpecificEvent(
     debugTitle: string,
