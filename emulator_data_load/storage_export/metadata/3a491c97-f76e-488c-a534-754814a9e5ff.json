@@ -1,0 +1,19 @@
+{
+  "name": "private/users/b4bcec3d-13b6-43f4-9642-63de90c5c8e4/profile/images/profile.jpg",
+  "bucket": "bulusalim-e8e7c.firebasestorage.app",
+  "metageneration": 1,
+  "generation": 1766438911034,
+  "contentType": "application/octet-stream",
+  "storageClass": "STANDARD",
+  "contentDisposition": "inline",
+  "downloadTokens": [
+    "8ff19fd3-7634-4d2f-9a16-43ef820b7cfd"
+  ],
+  "etag": "gUa7ELXRpRXFUUs3j9Pe2Np68ek",
+  "customMetadata": {},
+  "timeCreated": "2025-12-22T21:28:31.034Z",
+  "updated": "2025-12-22T21:28:31.034Z",
+  "size": 7063,
+  "md5Hash": "Gchc/80RtwIWfoVDpOlVzA==",
+  "crc32c": "2000658067"
+}

@@ -7,10 +7,10 @@ import {
     Timestamp,
     collection,
     getDoc,
-    updateDoc
+    updateDoc,
+    GeoPoint
 } from "firebase/firestore";
 
-import { GeoPoint } from "firebase/firestore";
 
 import {
     getAuth,
@@ -180,6 +180,7 @@ async function populateFirestore(num_users: number, num_events: number) {
             location: new GeoPoint(
                 faker.location.latitude() ?? 0,
                 faker.location.longitude() ?? 0
+
             ),
             attributes: {
                 price: faker.number.int({ min: 0, max: 100 }),

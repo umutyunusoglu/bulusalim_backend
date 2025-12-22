@@ -5,6 +5,7 @@ import {
     setDoc,
     doc,
     Timestamp,
+    GeoPoint
 } from "firebase/firestore";
 
 import {
@@ -118,7 +119,7 @@ async function createPost(
         caption: debugCaption, // DEBUG CAPTION USED HERE
         createdAt: Timestamp.fromDate(postDate),
         updatedAt: Timestamp.fromDate(postDate),
-        location: { "longitude": 28.9784, "latitude": 41.0082 },
+        location: new GeoPoint(41.0082, 28.9784),
         hobbies: ["debug_hobby"],
         imageUrls: [imageUrl],
         participants: [],
@@ -161,7 +162,7 @@ async function addSavedEventToUser(user: User, index: number) {
         capacity: 100,
         startTime: Timestamp.fromDate(futureDate),
         endTime: Timestamp.fromDate(futureEndDate),
-        location: { "longitude": 28.9784, "latitude": 41.0082 },
+        location: new GeoPoint(41.0082, 28.9784),
         attributes: { price: 50, smokingAllowed: true, alcoholAllowed: true, isPublic: true },
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -212,7 +213,7 @@ async function createSpecificEvent(
         capacity: 10,
         startTime: Timestamp.fromDate(startTimeDate),
         endTime: Timestamp.fromDate(endTimeDate),
-        location: { "longitude": 28.9784, "latitude": 41.0082 },
+        location: new GeoPoint(41.0082, 28.9784),
         attributes: { price: 0, smokingAllowed: false, alcoholAllowed: true, isPublic: true },
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
