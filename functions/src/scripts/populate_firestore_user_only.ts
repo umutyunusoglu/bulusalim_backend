@@ -147,31 +147,10 @@ async function createPost(
 
 async function addSavedEventToUser(user: User, index: number) {
     const eventID = faker.string.uuid();
-    const title = `SAVED_Event_${index}_For_${user.username}`;
 
     const futureDate = faker.date.future();
-    const futureEndDate = new Date(futureDate.getTime() + 2 * 60 * 60 * 1000);
 
-    const eventData: Event = {
-        eventID: eventID,
-        name: title,
-        info: "This is a dummy saved event for debugging.",
-        hobbies: ["saved_hobby"],
-        // For saved events, we can assign a dummy creator or use a real one
-        creator: { userID: 'system', username: 'System', profileImageUrl: '', role: 'creator', eventScore: 10 },
-        capacity: 100,
-        startTime: Timestamp.fromDate(futureDate),
-        endTime: Timestamp.fromDate(futureEndDate),
-        location: new GeoPoint(41.0082, 28.9784),
-        attributes: { price: 50, smokingAllowed: true, alcoholAllowed: true, isPublic: true },
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-        feedType: FeedTypeEnum.Event,
-        participants: []
-    };
 
-    // 1. Write the actual Event document to the root collection
-    await setDoc(doc(db, "events", eventID), eventData);
 
     // 2. Prepare the UserEvent metadata with status "saved"
     const userEventData: UserEvent = {
