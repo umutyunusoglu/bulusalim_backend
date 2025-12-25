@@ -5,9 +5,9 @@ import {
     setDoc,
     doc,
     Timestamp,
-    GeoPoint
+    GeoPoint,
+    writeBatch
 } from "firebase/firestore";
-
 import {
     getAuth,
     connectAuthEmulator,
@@ -15,7 +15,6 @@ import {
     updateProfile,
     signInWithEmailAndPassword
 } from "firebase/auth";
-
 import {
     getStorage,
     connectStorageEmulator,
@@ -23,16 +22,19 @@ import {
     uploadBytes,
     getDownloadURL
 } from "firebase/storage";
-
 import { faker } from "@faker-js/faker";
+
+// TİPLER
 import { User, UserEvent } from "./types/user";
 import { Event, EventParticipant } from "./types/event";
 import { Post, PinnedPost } from "./types/post";
 import { FeedTypeEnum } from "./types/feed_enum";
 
 // ------------------------------
-// Firebase Client SDK Setup
+// CONFIG
 // ------------------------------
+const TOTAL_USERS = 15;
+const FIXED_CAPACITY = 20;
 
 const firebaseConfig = {
     apiKey: "fake-api-key",
@@ -50,214 +52,57 @@ connectFirestoreEmulator(db, "localhost", 8080);
 connectAuthEmulator(auth, "http://localhost:9099");
 connectStorageEmulator(storage, "localhost", 9199);
 
-console.log("SDK Başlatıldı.");
+console.log("🚀 Final Senaryo: Pinned Post Fix...");
 
 // ------------------------------
-// Helper Functions
+// UTILS
 // ------------------------------
 
-async function uploadPhoto(destinationPath: string) {
-    // Returns a random valid image URL
-    const src = `https://picsum.photos/400/400?random=${Math.random()}`;
+async function uploadRandomPhoto(path: string, type: 'profile' | 'post' = 'profile'): Promise<string> {
+    const width = type === 'post' ? 600 : 200;
+    const height = type === 'post' ? 400 : 200;
+
     try {
-        const res = await fetch(src);
+        const res = await fetch(`https://picsum.photos/${width}/${height}?random=${Math.random()}`);
         const buffer = Buffer.from(await res.arrayBuffer());
-        const storageRef = ref(storage, destinationPath);
+        const storageRef = ref(storage, path);
         await uploadBytes(storageRef, buffer);
         return await getDownloadURL(storageRef);
-    } catch (e) {
+    } catch {
         return "https://via.placeholder.com/150";
     }
 }
 
-async function makeFriends(user1: User, user2: User) {
-    const commonData = { createdAt: Timestamp.now() };
-
-    // Create bidirectional following
-    await setDoc(doc(db, "users", user1.userID, "followees", user2.userID), {
-        userID: user2.userID, username: user2.username, profileImageUrl: user2.profileImageUrl, ...commonData
-    });
-    await setDoc(doc(db, "users", user2.userID, "followers", user1.userID), {
-        userID: user1.userID, username: user1.username, profileImageUrl: user1.profileImageUrl, ...commonData
-    });
-
-    await setDoc(doc(db, "users", user2.userID, "followees", user1.userID), {
-        userID: user1.userID, username: user1.username, profileImageUrl: user1.profileImageUrl, ...commonData
-    });
-    await setDoc(doc(db, "users", user1.userID, "followers", user2.userID), {
-        userID: user2.userID, username: user2.username, profileImageUrl: user2.profileImageUrl, ...commonData
-    });
-}
-
 // ------------------------------
-// Content Creation Helpers
+// 1. USER CREATION
 // ------------------------------
 
-async function createPost(
-    user: User,
-    eventID: string,
-    isPinned: boolean,
-    debugCaption: string,
-    isRecent: boolean = false
-) {
-    const postID = faker.string.uuid();
-    const imagePath = `private/users/${user.userID}/posts/${postID}/image.jpg`;
-    const imageUrl = await uploadPhoto(imagePath);
-
-    const postDate = isRecent
-        ? new Date(Date.now() - 1000 * 60 * 15) // 15 mins ago
-        : faker.date.recent({ days: 30 });
-
-    const postData: Post = {
-        postID: postID,
-        creator: {
-            userID: user.userID,
-            username: user.username!,
-            profileImageUrl: user.profileImageUrl
-        },
-        eventID: eventID,
-        caption: debugCaption, // DEBUG CAPTION USED HERE
-        createdAt: Timestamp.fromDate(postDate),
-        updatedAt: Timestamp.fromDate(postDate),
-        location: new GeoPoint(41.0082, 28.9784),
-        hobbies: ["debug_hobby"],
-        imageUrls: [imageUrl],
-        participants: [],
-        emoteCounts: {},
-        feedType: FeedTypeEnum.Post,
-        showParticipants: true,
-        includeInDump: true
-    };
-
-    await setDoc(doc(db, "posts", postID), postData);
-
-    if (isPinned) {
-        const pinnedPostData: PinnedPost = {
-            postID: postData.postID,
-            caption: postData.caption,
-            location: postData.location,
-            imageUrls: postData.imageUrls,
-            participants: postData.participants,
-            emoteCounts: postData.emoteCounts,
-            createdAt: postData.createdAt,
-        };
-        await setDoc(doc(db, "users", user.userID, "pinnedPosts", postID), pinnedPostData);
-    }
-}
-
-async function addSavedEventToUser(user: User, index: number) {
-    const eventID = faker.string.uuid();
-
-    const futureDate = faker.date.future();
-
-
-
-    // 2. Prepare the UserEvent metadata with status "saved"
-    const userEventData: UserEvent = {
-        eventID: eventID,
-        date: Timestamp.fromDate(futureDate),
-        role: 'participant', // Typically a saver is a potential participant
-        status: 'saved',     // <--- Status set to "saved" here
-        pinned: false
-    };
-
-    // 3. Write to user's eventLog subcollection
-    await setDoc(doc(db, "users", user.userID, "eventLog", eventID), userEventData);
-}
-async function createSpecificEvent(
-    debugTitle: string,
-    creatorUser: User,
-    participantsUsers: User[],
-    startTimeDate: Date,
-    durationHours: number,
-    status: 'upcoming' | 'ongoing' | 'completed'
-): Promise<string> {
-    const eventID = faker.string.uuid();
-    const endTimeDate = new Date(startTimeDate.getTime() + durationHours * 60 * 60 * 1000);
-
-    const participantsData: EventParticipant[] = participantsUsers.map(u => ({
-        userID: u.userID,
-        status: status,
-        username: u.username!,
-        profileImageUrl: u.profileImageUrl,
-        role: u.userID === creatorUser.userID ? 'creator' : 'participant',
-        eventScore: 0
-    }));
-
-    const eventData: Event = {
-        eventID: eventID,
-        name: debugTitle,
-        info: `Debug Info: Created by ${creatorUser.username}, Status: ${status}`,
-        hobbies: ["debug_event"],
-        creator: participantsData.find(p => p.userID === creatorUser.userID)!,
-        capacity: 10,
-        startTime: Timestamp.fromDate(startTimeDate),
-        endTime: Timestamp.fromDate(endTimeDate),
-        location: new GeoPoint(41.0082, 28.9784),
-        attributes: { price: 0, smokingAllowed: false, alcoholAllowed: true, isPublic: true },
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-        feedType: FeedTypeEnum.Event,
-        participants: participantsData
-    };
-
-    await setDoc(doc(db, "events", eventID), eventData);
-
-    for (const participant of participantsUsers) {
-        const userEventData: UserEvent = {
-            eventID: eventID,
-            date: Timestamp.fromDate(startTimeDate),
-            role: participant.userID === creatorUser.userID ? 'creator' : 'participant',
-            status: status,
-            pinned: false
-        };
-        await setDoc(doc(db, "users", participant.userID, "eventLog", eventID), userEventData);
-    }
-    console.log(`[EVENT] ${debugTitle} (ID: ${eventID})`);
-    return eventID;
-}
-
-// ------------------------------
-// MAIN SCRIPT
-// ------------------------------
-
-async function populateFirestoreAndAuth() {
+async function createUsers(): Promise<User[]> {
     const users: User[] = [];
-    const num_users = 5;
-    const defaultPassword = "123456";
+    console.log(`\nCreating ${TOTAL_USERS} Users...`);
 
-    console.log(`\n=== 1. Creating ${num_users} Users ===`);
-
-    for (let i = 0; i < num_users; i++) {
-        // Explicit Naming for Debugging
-        const userIndex = i + 1;
-        const email = `user${userIndex}@example.com`;
-        const username = `User ${userIndex}`; // "User 1", "User 2"...
+    for (let i = 0; i < TOTAL_USERS; i++) {
+        const id = i + 1;
+        const email = `user${id}@test.com`;
+        const password = "password123";
+        const username = `User ${id}`;
 
         let uid = "";
-        let photoUrl = "";
-
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, defaultPassword);
-            uid = userCredential.user.uid;
-            photoUrl = await uploadPhoto(`private/users/${uid}/profile.jpg`);
-            await updateProfile(userCredential.user, { displayName: username, photoURL: photoUrl });
-        } catch (e: any) {
-            // If user exists, try to login to get UID
-            try {
-                const loginCred = await signInWithEmailAndPassword(auth, email, defaultPassword);
-                uid = loginCred.user.uid;
-                photoUrl = loginCred.user.photoURL || "https://via.placeholder.com/150";
-            } catch (loginErr) {
-                console.log(`Skipping ${email}`);
-                continue;
-            }
+            const cred = await createUserWithEmailAndPassword(auth, email, password);
+            uid = cred.user.uid;
+        } catch (e) {
+            const cred = await signInWithEmailAndPassword(auth, email, password);
+            uid = cred.user.uid;
         }
+
+        const photoUrl = await uploadRandomPhoto(`users/${uid}/profile.jpg`, 'profile');
+        await updateProfile(auth.currentUser!, { displayName: username, photoURL: photoUrl });
 
         const userData: User = {
             userID: uid,
             email: email,
-            username: username, // Clean name
+            username: username,
             profileImageUrl: photoUrl,
             birthDate: Timestamp.fromDate(faker.date.birthdate({ min: 20, max: 30, mode: 'age' })),
             gender: 'other',
@@ -266,132 +111,316 @@ async function populateFirestoreAndAuth() {
             updatedAt: Timestamp.now(),
             lastActiveAt: Timestamp.now(),
             hobbies: [],
-            bio: `I am ${username}, a debug user.`
+            bio: id === 1 ? "MAIN TEST USER" : `Simulation user ${id}`
         };
 
-        users.push(userData);
         await setDoc(doc(db, "users", uid), userData);
-        console.log(`  -> Created: ${username} (ID: ${uid})`);
+        users.push(userData);
     }
-
-    if (users.length < 5) return;
-
-    console.log("\n=== 2. Creating Relationships ===");
-    // User 1 <-> User 2
-    await makeFriends(users[0], users[1]);
-    // User 3 <-> User 4
-    await makeFriends(users[2], users[3]);
-    // User 5 connects to everyone
-    users.slice(0, 4).forEach(async u => await makeFriends(users[4], u));
-
-    console.log("\n=== 3. Creating Event Scenarios ===");
-    const now = new Date();
-    let user1Events: string[] = []; // Track IDs for User 1's posts
-
-    // --- SCENARIO 1: User 1 & 2 (Ongoing) ---
-    // Started 1 hour ago
-    const s1_id = await createSpecificEvent(
-        "SCENARIO_1_Ongoing_User1_User2",
-        users[0],
-        [users[0], users[1]],
-        new Date(now.getTime() - 1 * 60 * 60 * 1000),
-        3,
-        'ongoing'
-    );
-    user1Events.push(s1_id);
-
-    // --- SCENARIO 2: User 3 & 4 (Upcoming) ---
-    // Starts tomorrow
-    await createSpecificEvent(
-        "SCENARIO_2_Upcoming_User3_User4",
-        users[2],
-        [users[2], users[3]],
-        new Date(now.getTime() + 24 * 60 * 60 * 1000),
-        2,
-        'upcoming'
-    );
-
-    // --- SCENARIO 3: User 1, 2, 3 (Upcoming) ---
-    // Starts in 3 days
-    const s3_id = await createSpecificEvent(
-        "SCENARIO_3_Upcoming_User1_User2_User3",
-        users[1],
-        [users[0], users[1], users[2]],
-        new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000),
-        5,
-        'upcoming'
-    );
-    user1Events.push(s3_id);
-
-    // --- SCENARIO 4: User 1 & 3 (Ongoing) ---
-    // Started 30 mins ago. THIS IS THE TARGET FOR THE RECENT POST.
-    const s4_target_id = await createSpecificEvent(
-        "SCENARIO_4_Ongoing_User1_User3_TARGET",
-        users[0],
-        [users[0], users[2]],
-        new Date(now.getTime() - 30 * 60 * 1000),
-        4,
-        'ongoing'
-    );
-    user1Events.push(s4_target_id);
-
-    console.log("\n=== 4. Creating Saved Events ===");
-
-    // User 1 (index 0): 2 Saved Events
-    await addSavedEventToUser(users[0], 1);
-    await addSavedEventToUser(users[0], 2);
-
-    // User 2 (index 1): 3 Saved Events
-    await addSavedEventToUser(users[1], 1);
-    await addSavedEventToUser(users[1], 2);
-    await addSavedEventToUser(users[1], 3);
-
-    // Others: 1 Saved Event
-    for (let i = 2; i < users.length; i++) {
-        await addSavedEventToUser(users[i], 1);
-    }
-    console.log("  -> Saved events distributed (2 for U1, 3 for U2, 1 for others).");
-
-    console.log("\n=== 5. Creating Posts (4 per user, 2 Pinned) ===");
-
-    for (let i = 0; i < users.length; i++) {
-        const u = users[i];
-
-        for (let p = 1; p <= 4; p++) {
-            const isPinned = (p <= 2); // First 2 are pinned
-            let eventID = faker.string.uuid(); // Default dummy
-            let caption = `[DEBUG] ${isPinned ? 'PINNED' : 'NORMAL'} Post ${p} by ${u.username}`;
-            let isRecent = false;
-
-            // --- SPECIAL LOGIC FOR USER 1 ---
-            if (i === 0) {
-                if (p === 1) {
-                    // Post 1: Must be on the Scenario 4 event and RECENT
-                    eventID = s4_target_id;
-                    isRecent = true;
-                    caption = `[DEBUG] RECENT POST by ${u.username} on SCENARIO_4 (Ongoing U1/U3)`;
-                } else {
-                    // Other posts: use known history events
-                    eventID = faker.helpers.arrayElement(user1Events);
-                    caption += ` on known event`;
-                }
-            } else {
-                caption += " on random event";
-            }
-
-            await createPost(u, eventID, isPinned, caption, isRecent);
-        }
-    }
-    console.log("  -> Posts created successfully.");
-
-    console.log("\n=== DONE ===");
-    console.log("Summary for Debugging:");
-    console.log(`1. Login as 'user1@example.com' (User 1).`);
-    console.log(`2. Check Ongoing Events: Should see 'SCENARIO_1...' and 'SCENARIO_4...'.`);
-    console.log(`3. Check 'SCENARIO_4' details: Should see a RECENT POST by User 1.`);
-    console.log(`4. Check Saved Events: User 1 should have 2, User 2 should have 3.`);
+    console.log("✅ Users Created.");
+    return users;
 }
 
-populateFirestoreAndAuth().then(() => {
+// ------------------------------
+// 2. FRIENDSHIPS
+// ------------------------------
+
+async function createFriendships(users: User[]) {
+    console.log("\nWeaving Social Network...");
+    const batch = writeBatch(db);
+
+    const connect = (u1: User, u2: User) => {
+        const common = { createdAt: Timestamp.now() };
+        batch.set(doc(db, "users", u1.userID, "followees", u2.userID), {
+            userID: u2.userID, username: u2.username, profileImageUrl: u2.profileImageUrl, ...common
+        });
+        batch.set(doc(db, "users", u2.userID, "followers", u1.userID), {
+            userID: u1.userID, username: u1.username, profileImageUrl: u1.profileImageUrl, ...common
+        });
+        batch.set(doc(db, "users", u2.userID, "followees", u1.userID), {
+            userID: u1.userID, username: u1.username, profileImageUrl: u1.profileImageUrl, ...common
+        });
+        batch.set(doc(db, "users", u1.userID, "followers", u2.userID), {
+            userID: u2.userID, username: u2.username, profileImageUrl: u2.profileImageUrl, ...common
+        });
+    };
+
+    // Grup 1: Sen ve arkadaşların
+    connect(users[0], users[1]); connect(users[0], users[2]); connect(users[0], users[3]); connect(users[0], users[4]);
+    connect(users[1], users[2]); connect(users[2], users[3]); connect(users[3], users[4]);
+
+    // Grup 2: Cool Kids
+    for (let i = 6; i < 9; i++) connect(users[5], users[i]);
+
+    // Köprüler
+    connect(users[4], users[5]);
+    connect(users[0], users[10]);
+
+    await batch.commit();
+    console.log("✅ Social Graph Established.");
+}
+
+// ------------------------------
+// 3. POST GENERATION LOGIC (FIXED)
+// ------------------------------
+
+async function createPostsForEvent(
+    users: User[],
+    event: Event,
+    creatorIdx: number,
+    acceptedIdxs: number[],
+    timeStatus: 'ongoing' | 'completed'
+) {
+
+    console.log(`    -> Generating posts for ${event.name}...`);
+
+    const potentialPostersIdx = [creatorIdx, ...acceptedIdxs];
+
+    for (const userIdx of potentialPostersIdx) {
+        const isCreator = userIdx === creatorIdx;
+        const postChance = isCreator ? 0.9 : 0.6; // İhtimalleri artırdım
+
+        if (Math.random() > postChance) continue;
+
+        const u = users[userIdx];
+        const postID = faker.string.uuid();
+        const imageUrl = await uploadRandomPhoto(`users/${u.userID}/posts/${postID}.jpg`, 'post');
+
+        const postDate = timeStatus === 'ongoing'
+            ? new Date(Date.now() - 1000 * 60 * 15)
+            : new Date(event.startTime.toDate().getTime() + 1000 * 60 * 60 * 2);
+
+        const captions = timeStatus === 'completed'
+            ? ["What a night!", "So fun.", `Loved the ${event.hobbies?.[0]} session!`, "Can't wait for next time."]
+            : ["Live now!", "Happening!", "Vibes are immaculate.", "Join us!"];
+        const caption = faker.helpers.arrayElement(captions);
+
+        const emoteCounts = {
+            'heart': faker.number.int({ min: 5, max: 25 }),
+            'clap': faker.number.int({ min: 1, max: 15 }),
+            'egg': faker.number.int({ min: 0, max: 5 })
+        };
+
+        const postData: Post = {
+            postID: postID,
+            creator: { userID: u.userID, username: u.username, profileImageUrl: u.profileImageUrl },
+            eventID: event.eventID,
+            caption: caption,
+            createdAt: Timestamp.fromDate(postDate),
+            updatedAt: Timestamp.fromDate(postDate),
+            location: event.location,
+            hobbies: event.hobbies,
+            imageUrls: [imageUrl],
+            participants: [],
+            emoteCounts: emoteCounts,
+            feedType: FeedTypeEnum.Post,
+            showParticipants: true,
+            includeInDump: true
+        };
+
+        // 1. Postu 'posts' koleksiyonuna yaz
+        await setDoc(doc(db, "posts", postID), postData);
+
+        // --- PINNED POST LOGIC (FIXED) ---
+        // User 1 için %100, diğerleri için %50 ihtimalle pinle
+        const pinChance = (userIdx === 0) ? 1.0 : 0.5;
+
+        if (Math.random() < pinChance) {
+            // Pinned post objesi
+            const pinned: PinnedPost = {
+                postID: postID,
+                caption: caption,
+                location: event.location,
+                imageUrls: [imageUrl],
+                participants: [], // Typescript hatası olmaması için boş array
+                emoteCounts: emoteCounts,
+                createdAt: Timestamp.fromDate(postDate)
+            };
+
+            // 2. Kullanıcının pinnedPosts subcollection'ına yaz
+            await setDoc(doc(db, "users", u.userID, "pinnedPosts", postID), pinned);
+
+            console.log(`       📌 PINNED POST created for ${u.username} (ID: ${postID})`);
+        }
+    }
+}
+
+// ------------------------------
+// 4. SCENARIO BUILDER
+// ------------------------------
+
+async function createScenarioEvent(
+    users: User[],
+    params: {
+        scenarioID: number,
+        title: string,
+        hobby: string,
+        creatorIdx: number,
+        acceptedIdxs: number[],
+        pendingIdxs: number[],
+        rejectedIdxs: number[],
+        savedIdxs: number[],
+        timeOffsetDay: number,
+    }
+) {
+    const eventID = faker.string.uuid();
+    const eventDate = new Date();
+    eventDate.setDate(eventDate.getDate() + params.timeOffsetDay);
+
+    let timeStatus: 'completed' | 'ongoing' | 'upcoming';
+    if (params.timeOffsetDay < 0) timeStatus = 'completed';
+    else if (params.timeOffsetDay === 0) timeStatus = 'ongoing';
+    else timeStatus = 'upcoming';
+
+    const participantsData: EventParticipant[] = [];
+    const creator = users[params.creatorIdx];
+
+    const addP = (uIdx: number, status: string, role: 'creator' | 'participant') => {
+        const u = users[uIdx];
+        participantsData.push({
+            userID: u.userID,
+            username: u.username,
+            profileImageUrl: u.profileImageUrl,
+            role: role,
+            status: status as any,
+            eventScore: role === 'creator' ? 100 : 0
+        });
+    };
+
+    addP(params.creatorIdx, timeStatus, 'creator');
+    params.acceptedIdxs.forEach(i => addP(i, timeStatus, 'participant'));
+    params.pendingIdxs.forEach(i => addP(i, 'pending', 'participant'));
+    params.rejectedIdxs.forEach(i => addP(i, 'rejected', 'participant'));
+
+    const countA = 1 + params.acceptedIdxs.length;
+    const debugName = `S${params.scenarioID}: ${params.title} (${timeStatus.toUpperCase().slice(0, 3)}) [A:${countA}]`;
+
+    const eventDoc: Event = {
+        eventID: eventID,
+        name: debugName,
+        info: `Scenario ${params.scenarioID} hosted by ${creator.username}.`,
+        hobbies: [params.hobby],
+        creator: participantsData[0],
+        capacity: FIXED_CAPACITY,
+        startTime: Timestamp.fromDate(eventDate),
+        endTime: Timestamp.fromDate(new Date(eventDate.getTime() + 2 * 60 * 60 * 1000)),
+        location: new GeoPoint(41.0082 + Math.random() * 0.01, 28.9784 + Math.random() * 0.01),
+        attributes: { isPublic: true },
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        feedType: FeedTypeEnum.Event,
+        participants: participantsData
+    };
+
+    await setDoc(doc(db, "events", eventID), eventDoc);
+
+    const batch = writeBatch(db);
+    const addToLog = (uIdx: number, status: string, role: string) => {
+        const u = users[uIdx];
+        batch.set(doc(db, "users", u.userID, "eventLog", eventID), {
+            eventID: eventID, date: Timestamp.fromDate(eventDate), role: role, status: status, pinned: false
+        } as UserEvent);
+    };
+
+    addToLog(params.creatorIdx, timeStatus, 'creator');
+    params.acceptedIdxs.forEach(i => addToLog(i, timeStatus, 'participant'));
+    params.pendingIdxs.forEach(i => addToLog(i, 'pending', 'participant'));
+    params.rejectedIdxs.forEach(i => addToLog(i, 'rejected', 'participant'));
+    params.savedIdxs.forEach(i => addToLog(i, 'saved', 'participant'));
+
+    await batch.commit();
+    console.log(`  -> Created Event: ${debugName}`);
+
+    if (timeStatus === 'completed' || timeStatus === 'ongoing') {
+        await createPostsForEvent(users, eventDoc, params.creatorIdx, params.acceptedIdxs, timeStatus);
+    }
+}
+
+// ------------------------------
+// MAIN EXECUTION
+// ------------------------------
+
+async function main() {
+    const users = await createUsers();
+    await createFriendships(users);
+
+    console.log("\nGenerating 10 Specific Scenarios...");
+
+    // S1: UPCOMING
+    await createScenarioEvent(users, {
+        scenarioID: 1, title: "Squad Match", hobby: "Football",
+        creatorIdx: 0, acceptedIdxs: [1, 2, 3, 4], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [],
+        timeOffsetDay: 2
+    });
+
+    // S2: PENDING HEAVY
+    await createScenarioEvent(users, {
+        scenarioID: 2, title: "Open Party", hobby: "Party",
+        creatorIdx: 0, acceptedIdxs: [1], pendingIdxs: [10, 11, 12, 13, 14], rejectedIdxs: [], savedIdxs: [],
+        timeOffsetDay: 5
+    });
+
+    // S3: REJECTED
+    await createScenarioEvent(users, {
+        scenarioID: 3, title: "Elite Chess", hobby: "Chess",
+        creatorIdx: 5, acceptedIdxs: [6, 7, 8], pendingIdxs: [], rejectedIdxs: [0], savedIdxs: [],
+        timeOffsetDay: 3
+    });
+
+    // S4: PENDING
+    await createScenarioEvent(users, {
+        scenarioID: 4, title: "LAN Party", hobby: "Gaming",
+        creatorIdx: 2, acceptedIdxs: [3, 4], pendingIdxs: [0], rejectedIdxs: [], savedIdxs: [],
+        timeOffsetDay: 1
+    });
+
+    // S5: SAVED
+    await createScenarioEvent(users, {
+        scenarioID: 5, title: "Art Exhibition", hobby: "Art",
+        creatorIdx: 12, acceptedIdxs: [13, 14], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [0],
+        timeOffsetDay: 10
+    });
+
+    // S6: ONGOING (POST VAR)
+    await createScenarioEvent(users, {
+        scenarioID: 6, title: "Morning Run", hobby: "Run",
+        creatorIdx: 0, acceptedIdxs: [5], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [],
+        timeOffsetDay: 0
+    });
+
+    // S7: COMPLETED (POST VAR + PINNED %100)
+    await createScenarioEvent(users, {
+        scenarioID: 7, title: "Festival", hobby: "Concert",
+        creatorIdx: 0, acceptedIdxs: [1, 5, 10], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [],
+        timeOffsetDay: -5
+    });
+
+    // S8: CROWDED (POST VAR)
+    await createScenarioEvent(users, {
+        scenarioID: 8, title: "Private B-Day", hobby: "Party",
+        creatorIdx: 6, acceptedIdxs: [5, 7, 8, 9], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [0],
+        timeOffsetDay: -2
+    });
+
+    // S9: SOLO
+    await createScenarioEvent(users, {
+        scenarioID: 9, title: "Night Drive", hobby: "Drive",
+        creatorIdx: 0, acceptedIdxs: [], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [1],
+        timeOffsetDay: 7
+    });
+
+    // S10: ADMIN
+    await createScenarioEvent(users, {
+        scenarioID: 10, title: "Workshop", hobby: "Code",
+        creatorIdx: 0, acceptedIdxs: [], pendingIdxs: [6, 7], rejectedIdxs: [11], savedIdxs: [],
+        timeOffsetDay: 6
+    });
+
+    console.log("\n=================================");
+    console.log("✅ DONE! Login: user1@test.com / password123");
+    console.log("👉 Check User 1 profile: You SHOULD see a Pinned Post from S7 (Festival).");
+    console.log("=================================");
     process.exit(0);
-});
+}
+
+main();

@@ -1,4 +1,4 @@
-import { GeoPoint } from "firebase-admin/firestore";
+import { GeoPoint } from "firebase/firestore";
 import { FeedTypeEnum } from "./feed_enum.js";
 type Post = {
     postID: string;
