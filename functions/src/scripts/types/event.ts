@@ -26,6 +26,7 @@ type EventAttributes = {
 }
 type EventParticipant = {
     userID: string;
+    status: string;
     username?: string;
     profileImageUrl: string;
     role: string;
@@ -38,5 +39,16 @@ type Message = {
     sender: string;
     sendTime: FirebaseFirestore.Timestamp;
 }
+
+enum EventStatus {
+
+    Upcoming = 'upcoming',
+    Ongoing = 'ongoing',
+    Completed = 'completed',
+    Cancelled = 'cancelled',
+
+
+}
+
 
 export { Event, EventAttributes, EventParticipant, Message };

@@ -161,8 +161,8 @@ async function addSavedEventToUser(user: User, index: number) {
         pinned: false
     };
 
-    // 3. Write to user's eventHistory subcollection
-    await setDoc(doc(db, "users", user.userID, "eventHistory", eventID), userEventData);
+    // 3. Write to user's eventLog subcollection
+    await setDoc(doc(db, "users", user.userID, "eventLog", eventID), userEventData);
 }
 async function createSpecificEvent(
     debugTitle: string,
@@ -177,6 +177,7 @@ async function createSpecificEvent(
 
     const participantsData: EventParticipant[] = participantsUsers.map(u => ({
         userID: u.userID,
+        status: status,
         username: u.username!,
         profileImageUrl: u.profileImageUrl,
         role: u.userID === creatorUser.userID ? 'creator' : 'participant',
@@ -210,7 +211,7 @@ async function createSpecificEvent(
             status: status,
             pinned: false
         };
-        await setDoc(doc(db, "users", participant.userID, "eventHistory", eventID), userEventData);
+        await setDoc(doc(db, "users", participant.userID, "eventLog", eventID), userEventData);
     }
     console.log(`[EVENT] ${debugTitle} (ID: ${eventID})`);
     return eventID;
