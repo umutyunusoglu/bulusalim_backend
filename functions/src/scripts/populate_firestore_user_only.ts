@@ -25,8 +25,9 @@ import {
 import { faker } from "@faker-js/faker";
 
 // TİPLER
+// Not: Projenizdeki tip dosyalarının yollarının doğru olduğundan emin olun
 import { User, UserEvent } from "./types/user";
-import { Event, EventParticipant } from "./types/event";
+import { EventParticipant } from "./types/event";
 import { Post, PinnedPost } from "./types/post";
 import { FeedTypeEnum } from "./types/feed_enum";
 
@@ -48,11 +49,12 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
 
+// Emulator Bağlantıları
 connectFirestoreEmulator(db, "localhost", 8080);
 connectAuthEmulator(auth, "http://localhost:9099");
 connectStorageEmulator(storage, "localhost", 9199);
 
-console.log("🚀 Final Senaryo: Pinned Post Fix...");
+console.log("🚀 Final Script: Subcollection & Smart Count Logic...");
 
 // ------------------------------
 // UTILS
@@ -145,14 +147,9 @@ async function createFriendships(users: User[]) {
         });
     };
 
-    // Grup 1: Sen ve arkadaşların
     connect(users[0], users[1]); connect(users[0], users[2]); connect(users[0], users[3]); connect(users[0], users[4]);
     connect(users[1], users[2]); connect(users[2], users[3]); connect(users[3], users[4]);
-
-    // Grup 2: Cool Kids
     for (let i = 6; i < 9; i++) connect(users[5], users[i]);
-
-    // Köprüler
     connect(users[4], users[5]);
     connect(users[0], users[10]);
 
@@ -161,24 +158,23 @@ async function createFriendships(users: User[]) {
 }
 
 // ------------------------------
-// 3. POST GENERATION LOGIC (FIXED)
+// 3. POST GENERATION LOGIC
 // ------------------------------
 
 async function createPostsForEvent(
     users: User[],
-    event: Event,
+    event: any, // 'any' kullandık çünkü participants dizisi tipte var ama objede yok
     creatorIdx: number,
     acceptedIdxs: number[],
     timeStatus: 'ongoing' | 'completed'
 ) {
 
     console.log(`    -> Generating posts for ${event.name}...`);
-
     const potentialPostersIdx = [creatorIdx, ...acceptedIdxs];
 
     for (const userIdx of potentialPostersIdx) {
         const isCreator = userIdx === creatorIdx;
-        const postChance = isCreator ? 0.9 : 0.6; // İhtimalleri artırdım
+        const postChance = isCreator ? 0.9 : 0.6;
 
         if (Math.random() > postChance) continue;
 
@@ -218,35 +214,27 @@ async function createPostsForEvent(
             includeInDump: true
         };
 
-        // 1. Postu 'posts' koleksiyonuna yaz
         await setDoc(doc(db, "posts", postID), postData);
 
-        // --- PINNED POST LOGIC (FIXED) ---
-        // User 1 için %100, diğerleri için %50 ihtimalle pinle
         const pinChance = (userIdx === 0) ? 1.0 : 0.5;
-
         if (Math.random() < pinChance) {
-            // Pinned post objesi
             const pinned: PinnedPost = {
                 postID: postID,
                 caption: caption,
                 location: event.location,
                 imageUrls: [imageUrl],
-                participants: [], // Typescript hatası olmaması için boş array
+                participants: [],
                 emoteCounts: emoteCounts,
                 createdAt: Timestamp.fromDate(postDate)
             };
-
-            // 2. Kullanıcının pinnedPosts subcollection'ına yaz
             await setDoc(doc(db, "users", u.userID, "pinnedPosts", postID), pinned);
-
             console.log(`       📌 PINNED POST created for ${u.username} (ID: ${postID})`);
         }
     }
 }
 
 // ------------------------------
-// 4. SCENARIO BUILDER
+// 4. SCENARIO BUILDER (SMART COUNT)
 // ------------------------------
 
 async function createScenarioEvent(
@@ -292,15 +280,24 @@ async function createScenarioEvent(
     params.pendingIdxs.forEach(i => addP(i, 'pending', 'participant'));
     params.rejectedIdxs.forEach(i => addP(i, 'rejected', 'participant'));
 
-    const countA = 1 + params.acceptedIdxs.length;
-    const debugName = `S${params.scenarioID}: ${params.title} (${timeStatus.toUpperCase().slice(0, 3)}) [A:${countA}]`;
+    // --- LOGIC: Sadece Active/Accepted olanları say ---
+    // Pending ve Rejected olanlar ana sayaca (participantCount) dahil edilmez.
+    const activeParticipantCount = participantsData.filter(p =>
+        p.role === 'creator' ||
+        p.status === 'accepted' ||
+        p.status === 'ongoing' ||
+        p.status === 'completed'
+    ).length;
 
-    const eventDoc: Event = {
+    const debugName = `S${params.scenarioID}: ${params.title} (${timeStatus.toUpperCase().slice(0, 3)}) [Cnt:${activeParticipantCount}]`;
+
+    // Event Doc (participants array YOK, participantCount VAR)
+    const eventDoc: any = {
         eventID: eventID,
         name: debugName,
         info: `Scenario ${params.scenarioID} hosted by ${creator.username}.`,
         hobbies: [params.hobby],
-        creator: participantsData[0],
+        creator: participantsData[0], // Creator objesi minified
         capacity: FIXED_CAPACITY,
         startTime: Timestamp.fromDate(eventDate),
         endTime: Timestamp.fromDate(new Date(eventDate.getTime() + 2 * 60 * 60 * 1000)),
@@ -309,15 +306,28 @@ async function createScenarioEvent(
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         feedType: FeedTypeEnum.Event,
-        participants: participantsData
+        participantCount: activeParticipantCount, // KRİTİK ALAN
+        participants: participantsData,
     };
+
 
     await setDoc(doc(db, "events", eventID), eventDoc);
 
-    const batch = writeBatch(db);
+    // Subcollection Write (Tüm katılımcılar buraya)
+    const participantsBatch = writeBatch(db);
+    participantsData.forEach(p => {
+        const pRef = doc(db, "events", eventID, "participants", p.userID);
+        participantsBatch.set(pRef, p);
+    });
+    await participantsBatch.commit();
+
+    console.log(`  -> Created Event: ${debugName} with ${activeParticipantCount} active participants.`);
+
+    // User Logs
+    const userLogBatch = writeBatch(db);
     const addToLog = (uIdx: number, status: string, role: string) => {
         const u = users[uIdx];
-        batch.set(doc(db, "users", u.userID, "eventLog", eventID), {
+        userLogBatch.set(doc(db, "users", u.userID, "eventLog", eventID), {
             eventID: eventID, date: Timestamp.fromDate(eventDate), role: role, status: status, pinned: false
         } as UserEvent);
     };
@@ -328,8 +338,7 @@ async function createScenarioEvent(
     params.rejectedIdxs.forEach(i => addToLog(i, 'rejected', 'participant'));
     params.savedIdxs.forEach(i => addToLog(i, 'saved', 'participant'));
 
-    await batch.commit();
-    console.log(`  -> Created Event: ${debugName}`);
+    await userLogBatch.commit();
 
     if (timeStatus === 'completed' || timeStatus === 'ongoing') {
         await createPostsForEvent(users, eventDoc, params.creatorIdx, params.acceptedIdxs, timeStatus);
@@ -337,79 +346,68 @@ async function createScenarioEvent(
 }
 
 // ------------------------------
-// MAIN EXECUTION
+// MAIN
 // ------------------------------
-
 async function main() {
     const users = await createUsers();
     await createFriendships(users);
 
-    console.log("\nGenerating 10 Specific Scenarios...");
+    console.log("\nGenerating Scenarios...");
 
-    // S1: UPCOMING
     await createScenarioEvent(users, {
         scenarioID: 1, title: "Squad Match", hobby: "Football",
         creatorIdx: 0, acceptedIdxs: [1, 2, 3, 4], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [],
         timeOffsetDay: 2
     });
 
-    // S2: PENDING HEAVY
     await createScenarioEvent(users, {
         scenarioID: 2, title: "Open Party", hobby: "Party",
         creatorIdx: 0, acceptedIdxs: [1], pendingIdxs: [10, 11, 12, 13, 14], rejectedIdxs: [], savedIdxs: [],
         timeOffsetDay: 5
     });
 
-    // S3: REJECTED
     await createScenarioEvent(users, {
         scenarioID: 3, title: "Elite Chess", hobby: "Chess",
         creatorIdx: 5, acceptedIdxs: [6, 7, 8], pendingIdxs: [], rejectedIdxs: [0], savedIdxs: [],
         timeOffsetDay: 3
     });
 
-    // S4: PENDING
     await createScenarioEvent(users, {
         scenarioID: 4, title: "LAN Party", hobby: "Gaming",
         creatorIdx: 2, acceptedIdxs: [3, 4], pendingIdxs: [0], rejectedIdxs: [], savedIdxs: [],
         timeOffsetDay: 1
     });
 
-    // S5: SAVED
     await createScenarioEvent(users, {
         scenarioID: 5, title: "Art Exhibition", hobby: "Art",
         creatorIdx: 12, acceptedIdxs: [13, 14], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [0],
         timeOffsetDay: 10
     });
 
-    // S6: ONGOING (POST VAR)
     await createScenarioEvent(users, {
         scenarioID: 6, title: "Morning Run", hobby: "Run",
         creatorIdx: 0, acceptedIdxs: [5], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [],
         timeOffsetDay: 0
     });
 
-    // S7: COMPLETED (POST VAR + PINNED %100)
     await createScenarioEvent(users, {
         scenarioID: 7, title: "Festival", hobby: "Concert",
         creatorIdx: 0, acceptedIdxs: [1, 5, 10], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [],
         timeOffsetDay: -5
     });
 
-    // S8: CROWDED (POST VAR)
     await createScenarioEvent(users, {
         scenarioID: 8, title: "Private B-Day", hobby: "Party",
         creatorIdx: 6, acceptedIdxs: [5, 7, 8, 9], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [0],
         timeOffsetDay: -2
     });
 
-    // S9: SOLO
     await createScenarioEvent(users, {
         scenarioID: 9, title: "Night Drive", hobby: "Drive",
         creatorIdx: 0, acceptedIdxs: [], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [1],
         timeOffsetDay: 7
     });
 
-    // S10: ADMIN
     await createScenarioEvent(users, {
         scenarioID: 10, title: "Workshop", hobby: "Code",
         creatorIdx: 0, acceptedIdxs: [], pendingIdxs: [6, 7], rejectedIdxs: [11], savedIdxs: [],
@@ -417,8 +415,7 @@ async function main() {
     });
 
     console.log("\n=================================");
-    console.log("✅ DONE! Login: user1@test.com / password123");
-    console.log("👉 Check User 1 profile: You SHOULD see a Pinned Post from S7 (Festival).");
+    console.log("✅ DONE! Check 'events' collection for correct 'participantCount'.");
     console.log("=================================");
     process.exit(0);
 }
