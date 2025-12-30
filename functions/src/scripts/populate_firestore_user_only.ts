@@ -23,6 +23,7 @@ import {
     getDownloadURL
 } from "firebase/storage";
 import { faker } from "@faker-js/faker";
+import { encode } from "ngeohash"; // <--- YENİ EKLENDİ
 
 // TİPLER
 // Not: Projenizdeki tip dosyalarının yollarının doğru olduğundan emin olun
@@ -280,8 +281,6 @@ async function createScenarioEvent(
     params.pendingIdxs.forEach(i => addP(i, 'pending', 'participant'));
     params.rejectedIdxs.forEach(i => addP(i, 'rejected', 'participant'));
 
-    // --- LOGIC: Sadece Active/Accepted olanları say ---
-    // Pending ve Rejected olanlar ana sayaca (participantCount) dahil edilmez.
     const activeParticipantCount = participantsData.filter(p =>
         p.role === 'creator' ||
         p.status === 'accepted' ||
@@ -291,29 +290,41 @@ async function createScenarioEvent(
 
     const debugName = `S${params.scenarioID}: ${params.title} (${timeStatus.toUpperCase().slice(0, 3)}) [Cnt:${activeParticipantCount}]`;
 
-    // Event Doc (participants array YOK, participantCount VAR)
+    // --- GEOHASH LOGIC ADDED HERE ---
+    // Rastgele koordinatları önce değişkenlere alıyoruz
+    const lat = 41.0082 + Math.random() * 0.01;
+    const lng = 28.9784 + Math.random() * 0.01;
+
+    // 1. Geohash üret (MapRepository ile uyumlu olması için precision: 7)
+    const geohash = encode(lat, lng, 7);
+
+    // 2. GeoPoint üret
+    const geoPoint = new GeoPoint(lat, lng);
+    // --------------------------------
+
     const eventDoc: any = {
         eventID: eventID,
         name: debugName,
         info: `Scenario ${params.scenarioID} hosted by ${creator.username}.`,
         hobbies: [params.hobby],
-        creator: participantsData[0], // Creator objesi minified
+        creator: participantsData[0],
         capacity: FIXED_CAPACITY,
         startTime: Timestamp.fromDate(eventDate),
         endTime: Timestamp.fromDate(new Date(eventDate.getTime() + 2 * 60 * 60 * 1000)),
-        location: new GeoPoint(41.0082 + Math.random() * 0.01, 28.9784 + Math.random() * 0.01),
+        location: geoPoint,
+        geohash: geohash, // <--- YENİ ALAN EKLENDİ
         attributes: { isPublic: true },
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         feedType: FeedTypeEnum.Event,
-        participantCount: activeParticipantCount, // KRİTİK ALAN
+        participantCount: activeParticipantCount,
         participants: participantsData,
     };
 
 
     await setDoc(doc(db, "events", eventID), eventDoc);
 
-    // Subcollection Write (Tüm katılımcılar buraya)
+    // Subcollection Write
     const participantsBatch = writeBatch(db);
     participantsData.forEach(p => {
         const pRef = doc(db, "events", eventID, "participants", p.userID);
@@ -321,7 +332,7 @@ async function createScenarioEvent(
     });
     await participantsBatch.commit();
 
-    console.log(`  -> Created Event: ${debugName} with ${activeParticipantCount} active participants.`);
+    console.log(`  -> Created Event: ${debugName} with ${activeParticipantCount} active participants. Geohash: ${geohash}`);
 
     // User Logs
     const userLogBatch = writeBatch(db);

@@ -16,6 +16,9 @@ type Event = {
     updatedAt: FirebaseFirestore.Timestamp;
     participants: EventParticipant[];
     feedType: FeedTypeEnum;
+    geohash: String,
+    isLocked: boolean,
+
 }
 
 type EventAttributes = {
