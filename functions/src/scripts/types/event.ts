@@ -4,6 +4,7 @@ import { FeedTypeEnum } from "./feed_enum";
 type Event = {
     eventID: string;
     name: string;
+    search_name: string;
     info: string;
     hobbies: string[];
     creator: EventParticipant;

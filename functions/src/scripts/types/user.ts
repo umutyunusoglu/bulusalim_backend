@@ -4,6 +4,7 @@ type User = {
     userID: string;
     email?: string;
     username?: string;
+    search_name: string;
     birthDate?: Timestamp;
     gender?: string;
     organization?: string;
@@ -15,6 +16,7 @@ type User = {
     hobbies?: UserHobby[];
     events?: UserEvent[];
     lastActiveAt?: Timestamp;
+    isPrivate: boolean;
 }
 
 type UserHobby = {

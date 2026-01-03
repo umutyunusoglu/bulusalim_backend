@@ -106,6 +106,7 @@ async function createUsers(): Promise<User[]> {
             userID: uid,
             email: email,
             username: username,
+            search_name: username.toLowerCase(),
             profileImageUrl: photoUrl,
             birthDate: Timestamp.fromDate(faker.date.birthdate({ min: 20, max: 30, mode: 'age' })),
             gender: 'other',
@@ -305,6 +306,7 @@ async function createScenarioEvent(
     const eventDoc: any = {
         eventID: eventID,
         name: debugName,
+        search_name: debugName.toLowerCase(),
         info: `Scenario ${params.scenarioID} hosted by ${creator.username}.`,
         hobbies: [params.hobby],
         creator: participantsData[0],
