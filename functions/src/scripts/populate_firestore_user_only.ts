@@ -115,9 +115,9 @@ async function createUsers(): Promise<User[]> {
             updatedAt: Timestamp.now(),
             lastActiveAt: Timestamp.now(),
             hobbies: [],
-            bio: id === 1 ? "MAIN TEST USER" : `Simulation user ${id}`
-        };
-
+            bio: id === 1 ? "MAIN TEST USER" : `Simulation user ${id}`,
+            isPrivate: faker.datatype.boolean()
+        }
         await setDoc(doc(db, "users", uid), userData);
         users.push(userData);
     }
