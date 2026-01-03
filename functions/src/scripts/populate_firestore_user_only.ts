@@ -23,7 +23,7 @@ import {
     getDownloadURL
 } from "firebase/storage";
 import { faker } from "@faker-js/faker";
-import { encode } from "ngeohash"; // <--- YENİ EKLENDİ
+import { encode } from "ngeohash";
 
 // TİPLER
 // Not: Projenizdeki tip dosyalarının yollarının doğru olduğundan emin olun
@@ -55,7 +55,33 @@ connectFirestoreEmulator(db, "localhost", 8080);
 connectAuthEmulator(auth, "http://localhost:9099");
 connectStorageEmulator(storage, "localhost", 9199);
 
-console.log("🚀 Final Script: Subcollection & Smart Count Logic...");
+console.log("🚀 Final Script: Categories, Real Locations & Smart Post Logic...");
+
+// ------------------------------
+// CONSTANTS & CATEGORIES
+// ------------------------------
+
+const EVENT_CATEGORIES: Record<string, string> = {
+    "Sohbet": "💬", "Tanışma": "👋", "Kahve": "☕", "Yemek": "🍔", "Tatlı": "🍰",
+    "İçmece": "🍺", "Parti": "🎉️", "Karaoke": "🎤", "Film": "🎬", "Müzik": "🎸",
+    "Masa Oyunları": "🎲", "Oyun": "🎮", "Dans": "💃", "Tiyatro": "🎭",
+    "Doğum Günü": "🎂", "Bowling": "🎳", "Gym": "🏋️", "Futbol": "⚽",
+    "Basketbol": "🏀", "Tenis": "🎾", "Voleybol": "🏐", "Koşu": "🏃",
+    "Yürüyüş": "🚶", "Yoga": "🧘", "Ders Çalışma": "📖", "Workshop": "🛠️",
+    "Seminer": "🎤", "Topluluk Etkinliği": "🙌", "Kitap Okuma": "📚", "Diğer": "✨"
+};
+
+// İstanbul'un 5 Popüler Semt Merkezi
+const DISTRICT_CENTERS = [
+    { name: "Kadıköy (Moda)", lat: 40.9870, lng: 29.0234, district: "İstanbul, Kadıköy" },
+    { name: "Beşiktaş (Çarşı)", lat: 41.0422, lng: 29.0067, district: "İstanbul, Beşiktaş" },
+    { name: "Şişli (Nişantaşı)", lat: 41.0520, lng: 28.9935, district: "İstanbul, Şişli" },
+    { name: "Beyoğlu (Cihangir)", lat: 41.0315, lng: 28.9837, district: "İstanbul, Beyoğlu" },
+    { name: "Sarıyer (Emirgan)", lat: 41.1042, lng: 29.0536, district: "İstanbul, Sarıyer" }
+];
+
+// 500m sapma (derece cinsinden yaklaşık değer)
+const MAX_OFFSET_DEG = 0.0045;
 
 // ------------------------------
 // UTILS
@@ -74,6 +100,29 @@ async function uploadRandomPhoto(path: string, type: 'profile' | 'post' = 'profi
     } catch {
         return "https://via.placeholder.com/150";
     }
+}
+
+// Semt seçip 500m içinde randomize eden fonksiyon
+function getRandomIstanbulLocation() {
+    // Rastgele bir semt seç
+    const district = faker.helpers.arrayElement(DISTRICT_CENTERS);
+
+    // Merkezden +/- 0.0045 derece sapma
+    const latOffset = (Math.random() * (MAX_OFFSET_DEG * 2)) - MAX_OFFSET_DEG;
+    const lngOffset = (Math.random() * (MAX_OFFSET_DEG * 2)) - MAX_OFFSET_DEG;
+
+    const lat = district.lat + latOffset;
+    const lng = district.lng + lngOffset;
+
+    const geohash = encode(lat, lng, 7);
+    const geoPoint = new GeoPoint(lat, lng);
+
+    return {
+        geoPoint,
+        geohash,
+        address: district.district,
+        debugName: district.name
+    };
 }
 
 // ------------------------------
@@ -165,18 +214,31 @@ async function createFriendships(users: User[]) {
 
 async function createPostsForEvent(
     users: User[],
-    event: any, // 'any' kullandık çünkü participants dizisi tipte var ama objede yok
+    event: any,
     creatorIdx: number,
     acceptedIdxs: number[],
-    timeStatus: 'ongoing' | 'completed'
+    timeStatus: 'ongoing' | 'completed' | 'upcoming'
 ) {
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+    const eventStartMs = event.startTime.toDate().getTime();
+
+    // --- LOGIC GATES ---
+    // 1. Upcoming etkinliklere ASLA post atılmaz.
+    if (timeStatus === 'upcoming') return;
+
+    // 2. Completed etkinliklerde 24 saat geçmişse ASLA post atılmaz.
+    if (timeStatus === 'completed' && (nowMs - eventStartMs > ONE_DAY_MS)) {
+        console.log(`    -> Skipped posts for ${event.name} (Older than 24h).`);
+        return;
+    }
 
     console.log(`    -> Generating posts for ${event.name}...`);
     const potentialPostersIdx = [creatorIdx, ...acceptedIdxs];
 
     for (const userIdx of potentialPostersIdx) {
         const isCreator = userIdx === creatorIdx;
-        const postChance = isCreator ? 0.9 : 0.6;
+        const postChance = isCreator ? 0.9 : 0.6; // Creator almost always posts
 
         if (Math.random() > postChance) continue;
 
@@ -184,9 +246,19 @@ async function createPostsForEvent(
         const postID = faker.string.uuid();
         const imageUrl = await uploadRandomPhoto(`users/${u.userID}/posts/${postID}.jpg`, 'post');
 
-        const postDate = timeStatus === 'ongoing'
-            ? new Date(Date.now() - 1000 * 60 * 15)
-            : new Date(event.startTime.toDate().getTime() + 1000 * 60 * 60 * 2);
+        // --- TIME CALCULATION ---
+        let postDateObj: Date;
+
+        if (timeStatus === 'ongoing') {
+            // Şu andan max 15 dk öncesi
+            postDateObj = new Date(nowMs - faker.number.int({ min: 1000, max: 15 * 60 * 1000 }));
+        } else {
+            // Completed (ve 24 saat sınırını geçmiş değil):
+            // Etkinlik başlangıcı ile şu an arasında rastgele bir an
+            const range = nowMs - eventStartMs;
+            const offset = faker.number.int({ min: 0, max: range });
+            postDateObj = new Date(eventStartMs + offset);
+        }
 
         const captions = timeStatus === 'completed'
             ? ["What a night!", "So fun.", `Loved the ${event.hobbies?.[0]} session!`, "Can't wait for next time."]
@@ -204,9 +276,10 @@ async function createPostsForEvent(
             creator: { userID: u.userID, username: u.username, profileImageUrl: u.profileImageUrl },
             eventID: event.eventID,
             caption: caption,
-            createdAt: Timestamp.fromDate(postDate),
-            updatedAt: Timestamp.fromDate(postDate),
+            createdAt: Timestamp.fromDate(postDateObj),
+            updatedAt: Timestamp.fromDate(postDateObj),
             location: event.location,
+            address: event.address,
             hobbies: event.hobbies,
             imageUrls: [imageUrl],
             participants: [],
@@ -227,10 +300,9 @@ async function createPostsForEvent(
                 imageUrls: [imageUrl],
                 participants: [],
                 emoteCounts: emoteCounts,
-                createdAt: Timestamp.fromDate(postDate)
+                createdAt: Timestamp.fromDate(postDateObj)
             };
             await setDoc(doc(db, "users", u.userID, "pinnedPosts", postID), pinned);
-            console.log(`       📌 PINNED POST created for ${u.username} (ID: ${postID})`);
         }
     }
 }
@@ -244,7 +316,7 @@ async function createScenarioEvent(
     params: {
         scenarioID: number,
         title: string,
-        hobby: string,
+        hobbyKey: keyof typeof EVENT_CATEGORIES, // String değil Key zorunlu
         creatorIdx: number,
         acceptedIdxs: number[],
         pendingIdxs: number[],
@@ -289,44 +361,37 @@ async function createScenarioEvent(
         p.status === 'completed'
     ).length;
 
-    const debugName = `S${params.scenarioID}: ${params.title} (${timeStatus.toUpperCase().slice(0, 3)}) [Cnt:${activeParticipantCount}]`;
+    const debugName = `S${params.scenarioID}: ${params.title} (${timeStatus.toUpperCase().slice(0, 3)})`;
 
-    // --- GEOHASH LOGIC ADDED HERE ---
-    // Rastgele koordinatları önce değişkenlere alıyoruz
-    const lat = 41.0082 + Math.random() * 0.01;
-    const lng = 28.9784 + Math.random() * 0.01;
-
-    // 1. Geohash üret (MapRepository ile uyumlu olması için precision: 7)
-    const geohash = encode(lat, lng, 7);
-
-    // 2. GeoPoint üret
-    const geoPoint = new GeoPoint(lat, lng);
-    // --------------------------------
+    // --- REAL LOCATION & ADDRESS LOGIC ---
+    const locData = getRandomIstanbulLocation();
+    // -------------------------------------
 
     const eventDoc: any = {
         eventID: eventID,
         name: debugName,
         search_name: debugName.toLowerCase(),
-        info: `Scenario ${params.scenarioID} hosted by ${creator.username}.`,
-        hobbies: [params.hobby],
+        info: `Scenario ${params.scenarioID} hosted by ${creator.username}. Category: ${params.hobbyKey}`,
+        hobbies: [params.hobbyKey], // Sadece Key kullanıyoruz
         creator: participantsData[0],
         capacity: FIXED_CAPACITY,
         startTime: Timestamp.fromDate(eventDate),
         endTime: Timestamp.fromDate(new Date(eventDate.getTime() + 2 * 60 * 60 * 1000)),
-        location: geoPoint,
-        geohash: geohash, // <--- YENİ ALAN EKLENDİ
+        location: locData.geoPoint,
+        address: locData.address, // "İstanbul, Beşiktaş" gibi
+        geohash: locData.geohash,
         attributes: { isPublic: true },
-        createdAt: Timestamp.now(),
+        createdAt: Timestamp.now(), // Event önce oluşturulur
         updatedAt: Timestamp.now(),
         feedType: FeedTypeEnum.Event,
         participantCount: activeParticipantCount,
         participants: participantsData,
     };
 
-
+    // 1. Create Event Document
     await setDoc(doc(db, "events", eventID), eventDoc);
 
-    // Subcollection Write
+    // 2. Subcollection Write
     const participantsBatch = writeBatch(db);
     participantsData.forEach(p => {
         const pRef = doc(db, "events", eventID, "participants", p.userID);
@@ -334,9 +399,9 @@ async function createScenarioEvent(
     });
     await participantsBatch.commit();
 
-    console.log(`  -> Created Event: ${debugName} with ${activeParticipantCount} active participants. Geohash: ${geohash}`);
+    console.log(`  -> Created Event: ${debugName} @ ${locData.debugName}`);
 
-    // User Logs
+    // 3. User Logs
     const userLogBatch = writeBatch(db);
     const addToLog = (uIdx: number, status: string, role: string) => {
         const u = users[uIdx];
@@ -353,9 +418,9 @@ async function createScenarioEvent(
 
     await userLogBatch.commit();
 
-    if (timeStatus === 'completed' || timeStatus === 'ongoing') {
-        await createPostsForEvent(users, eventDoc, params.creatorIdx, params.acceptedIdxs, timeStatus);
-    }
+    // 4. Create Posts (AFTER event creation to ensure chronology)
+    // Post mantığı (24 saat kuralı vs) bu fonksiyonun içinde
+    await createPostsForEvent(users, eventDoc, params.creatorIdx, params.acceptedIdxs, timeStatus);
 }
 
 // ------------------------------
@@ -365,70 +430,80 @@ async function main() {
     const users = await createUsers();
     await createFriendships(users);
 
-    console.log("\nGenerating Scenarios...");
+    console.log("\nGenerating Scenarios with New Categories & Locations...");
 
+    // S1: Futbol
     await createScenarioEvent(users, {
-        scenarioID: 1, title: "Squad Match", hobby: "Football",
+        scenarioID: 1, title: "Squad Match", hobbyKey: "Futbol",
         creatorIdx: 0, acceptedIdxs: [1, 2, 3, 4], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [],
-        timeOffsetDay: 2
+        timeOffsetDay: 2 // Upcoming
     });
 
+    // S2: Parti
     await createScenarioEvent(users, {
-        scenarioID: 2, title: "Open Party", hobby: "Party",
+        scenarioID: 2, title: "Open Party", hobbyKey: "Parti",
         creatorIdx: 0, acceptedIdxs: [1], pendingIdxs: [10, 11, 12, 13, 14], rejectedIdxs: [], savedIdxs: [],
-        timeOffsetDay: 5
+        timeOffsetDay: 5 // Upcoming
     });
 
+    // S3: Masa Oyunları (Eski Chess)
     await createScenarioEvent(users, {
-        scenarioID: 3, title: "Elite Chess", hobby: "Chess",
+        scenarioID: 3, title: "Elite Chess", hobbyKey: "Masa Oyunları",
         creatorIdx: 5, acceptedIdxs: [6, 7, 8], pendingIdxs: [], rejectedIdxs: [0], savedIdxs: [],
-        timeOffsetDay: 3
+        timeOffsetDay: 3 // Upcoming
     });
 
+    // S4: Oyun (Eski Gaming)
     await createScenarioEvent(users, {
-        scenarioID: 4, title: "LAN Party", hobby: "Gaming",
+        scenarioID: 4, title: "LAN Party", hobbyKey: "Oyun",
         creatorIdx: 2, acceptedIdxs: [3, 4], pendingIdxs: [0], rejectedIdxs: [], savedIdxs: [],
-        timeOffsetDay: 1
+        timeOffsetDay: 1 // Upcoming
     });
 
+    // S5: Diğer (Eski Art - Sergi için en uygunu)
     await createScenarioEvent(users, {
-        scenarioID: 5, title: "Art Exhibition", hobby: "Art",
+        scenarioID: 5, title: "Art Exhibition", hobbyKey: "Diğer",
         creatorIdx: 12, acceptedIdxs: [13, 14], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [0],
-        timeOffsetDay: 10
+        timeOffsetDay: 10 // Upcoming
     });
 
+    // S6: Koşu (Morning Run) - ONGOING (0 gün)
     await createScenarioEvent(users, {
-        scenarioID: 6, title: "Morning Run", hobby: "Run",
+        scenarioID: 6, title: "Morning Run", hobbyKey: "Koşu",
         creatorIdx: 0, acceptedIdxs: [5], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [],
-        timeOffsetDay: 0
+        timeOffsetDay: 0 // Ongoing -> Post atar (son 15 dk içinde)
     });
 
+    // S7: Müzik (Festival) - COMPLETED OLD (-5 gün)
     await createScenarioEvent(users, {
-        scenarioID: 7, title: "Festival", hobby: "Concert",
+        scenarioID: 7, title: "Festival", hobbyKey: "Müzik",
         creatorIdx: 0, acceptedIdxs: [1, 5, 10], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [],
-        timeOffsetDay: -5
+        timeOffsetDay: -5 // Completed & >24h -> Post ATMAZ
     });
 
+    // S8: Doğum Günü (Eski Private B-Day) - COMPLETED OLD (-2 gün)
     await createScenarioEvent(users, {
-        scenarioID: 8, title: "Private B-Day", hobby: "Party",
+        scenarioID: 8, title: "Private B-Day", hobbyKey: "Doğum Günü",
         creatorIdx: 6, acceptedIdxs: [5, 7, 8, 9], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [0],
-        timeOffsetDay: -2
+        timeOffsetDay: -2 // Completed & >24h -> Post ATMAZ
     });
 
+    // S9: Diğer (Night Drive) - Upcoming
     await createScenarioEvent(users, {
-        scenarioID: 9, title: "Night Drive", hobby: "Drive",
+        scenarioID: 9, title: "Night Drive", hobbyKey: "Diğer",
         creatorIdx: 0, acceptedIdxs: [], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [1],
-        timeOffsetDay: 7
+        timeOffsetDay: 7 // Upcoming
     });
 
+    // S10: Workshop (Eski Code) - Upcoming
     await createScenarioEvent(users, {
-        scenarioID: 10, title: "Workshop", hobby: "Code",
+        scenarioID: 10, title: "Code Workshop", hobbyKey: "Workshop",
         creatorIdx: 0, acceptedIdxs: [], pendingIdxs: [6, 7], rejectedIdxs: [11], savedIdxs: [],
-        timeOffsetDay: 6
+        timeOffsetDay: 6 // Upcoming
     });
 
     console.log("\n=================================");
-    console.log("✅ DONE! Check 'events' collection for correct 'participantCount'.");
+    console.log("✅ DONE! Check 'events' & 'posts' collections.");
     console.log("=================================");
     process.exit(0);
 }
