@@ -25,18 +25,30 @@ import {
 import { faker } from "@faker-js/faker";
 import { encode } from "ngeohash";
 
-// TİPLER (Mevcut proje yapına uygun olduğunu varsayıyoruz)
+// TİPLER
 import { User, UserEvent } from "./types/user";
 import { Post, PinnedPost } from "./types/post";
 import { FeedTypeEnum } from "./types/feed_enum";
 
-// STATE ENUM
+// ------------------------------
+// ENUMS
+// ------------------------------
+
+// EVENT STATUS (Etkinliğin genel durumu)
+enum EventStatus {
+    Upcoming = 'upcoming',
+    Ongoing = 'ongoing',
+    Completed = 'completed',
+    Cancelled = 'cancelled'
+}
+
+// PARTICIPANT STATUS (Kullanıcının etkinlikle ilişkisi)
 enum EventParticipantStatus {
     Saved = 'saved',
     Pending = 'pending',
     Accepted = 'accepted',
     Rejected = 'rejected',
-    Upcoming = 'upcoming',
+    Upcoming = 'upcoming', // Kullanıcı için de bu statüler loglarda kullanılabilir
     Ongoing = 'ongoing',
     Completed = 'completed',
     Cancelled = 'cancelled',
@@ -65,7 +77,7 @@ connectFirestoreEmulator(db, "localhost", 8080);
 connectAuthEmulator(auth, "http://localhost:9099");
 connectStorageEmulator(storage, "localhost", 9199);
 
-console.log("🚀 Final Script: ALL SCENARIOS + RULES + 1-3 PHOTOS...");
+console.log("🚀 Final Script: EVENT STATUS ADDED (Upcoming, Ongoing, Completed)...");
 
 // ------------------------------
 // CONSTANTS & CATEGORIES
@@ -221,12 +233,10 @@ async function createPostsForEvent(
     event: any,
     creatorIdx: number,
     acceptedIdxs: number[],
-    timeStatus: EventParticipantStatus
+    status: EventStatus // EventStatus enum kullanıyoruz
 ) {
-    // -----------------------------------------------------------
-    // KURAL 3: Upcoming (Gelecek) etkinliklerde asla post atılmaz.
-    // -----------------------------------------------------------
-    if (timeStatus === EventParticipantStatus.Upcoming) {
+    // KURAL: Upcoming ise post atma
+    if (status === EventStatus.Upcoming) {
         return;
     }
 
@@ -240,34 +250,26 @@ async function createPostsForEvent(
         const u = users[userIdx];
         const postID = faker.string.uuid();
 
-        // -----------------------------------------------------------
-        // KURAL: BİR POSTTA 1-3 FOTOĞRAF OLABİLİR
-        // -----------------------------------------------------------
+        // KURAL: 1-3 Fotoğraf
         const photoCount = faker.number.int({ min: 1, max: 3 });
         const imageUrls: string[] = [];
-
         for (let k = 0; k < photoCount; k++) {
             const url = await uploadRandomPhoto(`users/${u.userID}/posts/${postID}_${k}.jpg`, 'post');
             imageUrls.push(url);
         }
 
-        // -----------------------------------------------------------
-        // KURAL 1 & 2: ZAMANLAMA
-        // -----------------------------------------------------------
+        // KURAL: Zamanlama
         let postDateObj: Date;
-
-        if (timeStatus === EventParticipantStatus.Ongoing) {
-            // Ongoing: Şu andan hemen önce (canlı gibi)
+        if (status === EventStatus.Ongoing) {
             postDateObj = new Date(nowMs - faker.number.int({ min: 1000, max: 30 * 60 * 1000 }));
         } else {
-            // Completed: Etkinlik başlangıcından sonraki 24 SAAT içinde.
-            // Bu sayede etkinlik 5 gün önce bitmiş olsa bile, post verisi "o gün" atılmış gibi görünür.
+            // Completed: Max 24 saat içinde
             const maxDelay = 24 * 60 * 60 * 1000;
             const offset = faker.number.int({ min: 0, max: maxDelay });
             postDateObj = new Date(eventStartMs + offset);
         }
 
-        const captions = timeStatus === EventParticipantStatus.Completed
+        const captions = status === EventStatus.Completed
             ? ["What a night!", "So fun.", `Loved the ${event.hobbies?.[0]} session!`, "Can't wait for next time.", "Memories 📸"]
             : ["Live now!", "Happening!", "Vibes are immaculate.", "Join us!", "Here right now!"];
         const caption = faker.helpers.arrayElement(captions);
@@ -298,7 +300,6 @@ async function createPostsForEvent(
 
         await setDoc(doc(db, "posts", postID), postData);
 
-        // Pinleme (%30 Şans)
         if (Math.random() < 0.3) {
             const pinned: PinnedPost = {
                 postID: postID,
@@ -336,11 +337,18 @@ async function createScenarioEvent(
     const eventDate = new Date();
     eventDate.setDate(eventDate.getDate() + params.timeOffsetDay);
 
-    // Zaman Bazlı Statü Belirleme
-    let timeBasedStatus: EventParticipantStatus;
-    if (params.timeOffsetDay < 0) timeBasedStatus = EventParticipantStatus.Completed;
-    else if (params.timeOffsetDay === 0) timeBasedStatus = EventParticipantStatus.Ongoing;
-    else timeBasedStatus = EventParticipantStatus.Upcoming;
+    // -------------------------------------------------------------
+    // EVENT STATUS & PARTICIPANT STATUS HESAPLAMA
+    // -------------------------------------------------------------
+    let eventStatus: EventStatus;
+
+    if (params.timeOffsetDay < 0) {
+        eventStatus = EventStatus.Completed;
+    } else if (params.timeOffsetDay === 0) {
+        eventStatus = EventStatus.Ongoing;
+    } else {
+        eventStatus = EventStatus.Upcoming;
+    }
 
     const creator = users[params.creatorIdx];
     const creatorSummary = {
@@ -348,12 +356,12 @@ async function createScenarioEvent(
         username: creator.username,
         profileImageUrl: creator.profileImageUrl,
         role: 'creator',
-        status: timeBasedStatus,
+        status: eventStatus, // Creator status genellikle event status ile aynıdır
         eventScore: 100
     };
 
     const locData = getRandomIstanbulLocation();
-    const debugName = `S${params.scenarioID}: ${params.title} (${timeBasedStatus.toUpperCase()})`;
+    const debugName = `S${params.scenarioID}: ${params.title} (${eventStatus.toUpperCase()})`;
     console.log(`  -> Creating Event: ${debugName}`);
 
     const batch = writeBatch(db);
@@ -366,7 +374,7 @@ async function createScenarioEvent(
             username: u.username,
             profileImageUrl: u.profileImageUrl,
             role: role,
-            status: timeBasedStatus,
+            status: eventStatus, // Katılımcının statüsü de etkinliğin o anki durumu olur
             eventScore: role === 'creator' ? 100 : 0
         };
         const ref = doc(db, "events", eventID, "participants", u.userID);
@@ -390,7 +398,9 @@ async function createScenarioEvent(
         batch.set(doc(db, "events", eventID, "rejectedUsers", u.userID), rejData);
     });
 
-    // 4. EVENT DOCUMENT
+    // -------------------------------------------------------------
+    // 4. EVENT DOCUMENT (UPDATED WITH STATUS)
+    // -------------------------------------------------------------
     const eventDoc: any = {
         eventID: eventID,
         name: debugName,
@@ -404,6 +414,10 @@ async function createScenarioEvent(
         location: locData.geoPoint,
         address: locData.address,
         geohash: locData.geohash,
+
+        // YENİ EKLENEN ALAN:
+        status: eventStatus,
+
         isLocked: false,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -413,27 +427,36 @@ async function createScenarioEvent(
     batch.set(doc(db, "events", eventID), eventDoc);
 
     // 5. USER EVENT LOGS
-    const addToLog = (uIdx: number, status: EventParticipantStatus, role: 'creator' | 'participant') => {
+    const addToLog = (uIdx: number, pStatus: EventParticipantStatus, role: 'creator' | 'participant') => {
         const u = users[uIdx];
         const logData: UserEvent = {
             eventID: eventID,
             date: Timestamp.fromDate(eventDate),
             role: role,
-            status: status,
+            status: pStatus,
             pinned: false
         };
         batch.set(doc(db, "users", u.userID, "eventLog", eventID), logData);
     };
 
-    addToLog(params.creatorIdx, timeBasedStatus, 'creator');
-    params.acceptedIdxs.forEach(i => addToLog(i, timeBasedStatus, 'participant'));
+    // User Loglarına yazarken 'eventStatus'u uygun 'EventParticipantStatus'a cast ediyoruz veya map ediyoruz.
+    // Burada string değerleri aynı olduğu için (upcoming, completed vs.) doğrudan kullanabiliriz 
+    // ama Pending/Rejected gibi özel durumlar ayrı kalıyor.
+
+    // Aktif katılımcılar için eventin o anki durumu:
+    const activeStatus = eventStatus as unknown as EventParticipantStatus;
+
+    addToLog(params.creatorIdx, activeStatus, 'creator');
+    params.acceptedIdxs.forEach(i => addToLog(i, activeStatus, 'participant'));
+
+    // Diğerleri için özel statüler:
     params.pendingIdxs.forEach(i => addToLog(i, EventParticipantStatus.Pending, 'participant'));
     params.rejectedIdxs.forEach(i => addToLog(i, EventParticipantStatus.Rejected, 'participant'));
     params.savedIdxs.forEach(i => addToLog(i, EventParticipantStatus.Saved, 'participant'));
 
     await batch.commit();
 
-    await createPostsForEvent(users, eventDoc, params.creatorIdx, params.acceptedIdxs, timeBasedStatus);
+    await createPostsForEvent(users, eventDoc, params.creatorIdx, params.acceptedIdxs, eventStatus);
 }
 
 // ------------------------------
@@ -445,70 +468,70 @@ async function main() {
 
     console.log("\nGenerating ALL Scenarios...");
 
-    // S1: Futbol - Upcoming (NO POSTS)
+    // S1: Futbol - Upcoming
     await createScenarioEvent(users, {
         scenarioID: 1, title: "Squad Match", hobbyKey: "Futbol",
         creatorIdx: 0, acceptedIdxs: [1, 2, 3, 4], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [],
         timeOffsetDay: 2
     });
 
-    // S2: Parti - Upcoming (NO POSTS)
+    // S2: Parti - Upcoming
     await createScenarioEvent(users, {
         scenarioID: 2, title: "Open Party", hobbyKey: "Parti",
         creatorIdx: 0, acceptedIdxs: [1], pendingIdxs: [10, 11, 12, 13, 14], rejectedIdxs: [], savedIdxs: [],
         timeOffsetDay: 5
     });
 
-    // S3: Masa Oyunları - Upcoming (NO POSTS)
+    // S3: Masa Oyunları - Upcoming
     await createScenarioEvent(users, {
         scenarioID: 3, title: "Elite Chess", hobbyKey: "Masa Oyunları",
         creatorIdx: 5, acceptedIdxs: [6, 7, 8], pendingIdxs: [], rejectedIdxs: [0], savedIdxs: [],
         timeOffsetDay: 3
     });
 
-    // S4: Oyun - Upcoming (NO POSTS)
+    // S4: Oyun - Upcoming
     await createScenarioEvent(users, {
         scenarioID: 4, title: "LAN Party", hobbyKey: "Oyun",
         creatorIdx: 2, acceptedIdxs: [3, 4], pendingIdxs: [0], rejectedIdxs: [], savedIdxs: [],
         timeOffsetDay: 1
     });
 
-    // S5: Sergi - Upcoming (NO POSTS)
+    // S5: Sergi - Upcoming
     await createScenarioEvent(users, {
         scenarioID: 5, title: "Art Exhibition", hobbyKey: "Diğer",
         creatorIdx: 12, acceptedIdxs: [13, 14], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [0],
         timeOffsetDay: 10
     });
 
-    // S6: Koşu - ONGOING (POSTS - NOW)
+    // S6: Koşu - ONGOING
     await createScenarioEvent(users, {
         scenarioID: 6, title: "Morning Run", hobbyKey: "Koşu",
         creatorIdx: 0, acceptedIdxs: [5], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [],
         timeOffsetDay: 0
     });
 
-    // S7: Festival - COMPLETED (POSTS - BACKDATED)
+    // S7: Festival - COMPLETED
     await createScenarioEvent(users, {
         scenarioID: 7, title: "Festival", hobbyKey: "Müzik",
         creatorIdx: 0, acceptedIdxs: [1, 5, 10], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [],
         timeOffsetDay: -5
     });
 
-    // S8: Doğum Günü - COMPLETED (POSTS - BACKDATED)
+    // S8: Doğum Günü - COMPLETED
     await createScenarioEvent(users, {
         scenarioID: 8, title: "Private B-Day", hobbyKey: "Doğum Günü",
         creatorIdx: 6, acceptedIdxs: [5, 7, 8, 9], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [0],
         timeOffsetDay: -2
     });
 
-    // S9: Night Drive - Upcoming (NO POSTS)
+    // S9: Night Drive - Upcoming
     await createScenarioEvent(users, {
         scenarioID: 9, title: "Night Drive", hobbyKey: "Diğer",
         creatorIdx: 0, acceptedIdxs: [], pendingIdxs: [], rejectedIdxs: [], savedIdxs: [1],
         timeOffsetDay: 7
     });
 
-    // S10: Workshop - Upcoming (NO POSTS)
+    // S10: Workshop - Upcoming
     await createScenarioEvent(users, {
         scenarioID: 10, title: "Code Workshop", hobbyKey: "Workshop",
         creatorIdx: 0, acceptedIdxs: [], pendingIdxs: [6, 7], rejectedIdxs: [11], savedIdxs: [],
@@ -516,7 +539,7 @@ async function main() {
     });
 
     console.log("\n=================================");
-    console.log("✅ DONE! All 10 Scenarios Created with Post Rules.");
+    console.log("✅ DONE! All 10 Scenarios Created with Event Status field.");
     console.log("=================================");
     process.exit(0);
 }
