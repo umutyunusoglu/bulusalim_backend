@@ -288,7 +288,7 @@ async function createPostsForEvent(
             createdAt: Timestamp.fromDate(postDateObj),
             updatedAt: Timestamp.fromDate(postDateObj),
             location: event.location,
-            address: event.address,
+            displayAddress: event.displayAddress,
             hobbies: event.hobbies,
             imageUrls: imageUrls,
             participants: [],
@@ -413,6 +413,7 @@ async function createScenarioEvent(
         endTime: Timestamp.fromDate(new Date(eventDate.getTime() + 2 * 60 * 60 * 1000)),
         location: locData.geoPoint,
         address: locData.address,
+        displayAddress: locData.address,
         geohash: locData.geohash,
 
         // YENİ EKLENEN ALAN:

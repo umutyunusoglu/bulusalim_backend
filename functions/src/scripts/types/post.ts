@@ -8,7 +8,7 @@ type Post = {
     createdAt: FirebaseFirestore.Timestamp;
     updatedAt: FirebaseFirestore.Timestamp;
     location: GeoPoint;
-    address: String;
+    displayAddress: String;
     hobbies?: string[];
     imageUrls: string[];
     participants?: PostParticipant[];
