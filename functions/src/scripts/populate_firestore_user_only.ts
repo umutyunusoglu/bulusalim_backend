@@ -26,8 +26,8 @@ import { faker } from "@faker-js/faker";
 import { encode } from "ngeohash";
 
 // TİPLER
-import { User, UserEvent } from "./types/user";
-import { Post, PinnedPost } from "./types/post";
+import { User, } from "./types/user";
+import { Post, } from "./types/post";
 import { FeedTypeEnum } from "./types/feed_enum";
 
 // ------------------------------
@@ -301,16 +301,31 @@ async function createPostsForEvent(
         await setDoc(doc(db, "posts", postID), postData);
 
         if (Math.random() < 0.3) {
-            const pinned: PinnedPost = {
+            const pinned = {
                 postID: postID,
                 caption: caption,
                 location: event.location,
                 imageUrls: imageUrls,
                 participants: [],
                 emoteCounts: emoteCounts,
+                isPinned: true,
                 createdAt: Timestamp.fromDate(postDateObj)
             };
-            await setDoc(doc(db, "users", u.userID, "pinnedPosts", postID), pinned);
+            await setDoc(doc(db, "users", u.userID, "posts", postID), pinned);
+        }
+        else {
+            const notPinned = {
+                postID: postID,
+                caption: caption,
+                location: event.location,
+                imageUrls: imageUrls,
+                participants: [],
+                emoteCounts: emoteCounts,
+                isPinned: false,
+                createdAt: Timestamp.fromDate(postDateObj)
+            };
+            await setDoc(doc(db, "users", u.userID, "posts", postID), notPinned);
+
         }
     }
 }
@@ -430,13 +445,13 @@ async function createScenarioEvent(
     // 5. USER EVENT LOGS
     const addToLog = (uIdx: number, pStatus: EventParticipantStatus, role: 'creator' | 'participant') => {
         const u = users[uIdx];
-        const logData: UserEvent = {
+        const logData = {
             eventID: eventID,
-            date: Timestamp.fromDate(eventDate),
             role: role,
             status: pStatus,
-            pinned: false
+            updatedAt: Timestamp.fromDate(eventDate),
         };
+
         batch.set(doc(db, "users", u.userID, "eventLog", eventID), logData);
     };
 
