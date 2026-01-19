@@ -22,7 +22,7 @@ import {
     uploadBytes,
     getDownloadURL
 } from "firebase/storage";
-import { faker } from "@faker-js/faker";
+import { fakerTR as faker } from "@faker-js/faker";
 import { encode } from "ngeohash";
 
 // ------------------------------
@@ -69,8 +69,12 @@ console.log("🚀 MVP FINAL SCRIPT: High Pin Rate & Full Profiles...");
 // ------------------------------
 
 const EVENT_CATEGORIES = [
-    "Sohbet", "Tanışma", "Kahve", "Yemek", "İçmece", "Parti",
-    "Müzik", "Oyun", "Dans", "Tiyatro", "Spor", "Sanat", "Workshop"
+    "Kahve", "Sohbet", "Tanışma", "Parti", "İçmece", "Müzik",
+    "Film", "Tiyatro", "Oyun", "Masa Oyunları", "Doğum Günü",
+    "Tatlı", "Karaoke", "Bowling", "Dans", "Koşu", "Futbol",
+    "Basketbol", "Tenis", "Voleybol", "Yürüyüş", "Yoga", "Gym",
+    "Workshop", "Kitap Okuma", "Ders Çalışma", "Seminer",
+    "Topluluk Etkinliği", "Diğer"
 ];
 
 const POST_CAPTIONS = [
@@ -86,6 +90,28 @@ const DISTRICT_CENTERS = [
     { name: "Beşiktaş", lat: 41.0422, lng: 29.0067, district: "İstanbul, Beşiktaş" },
     { name: "Şişli", lat: 41.0520, lng: 28.9935, district: "İstanbul, Şişli" },
     { name: "Karaköy", lat: 41.0224, lng: 28.9774, district: "İstanbul, Beyoğlu" }
+];
+
+const MODERN_MALE_NAMES = [
+    "Atlas", "Aras", "Rüzgar", "Çınar", "Toprak", "Kuzey", "Uzay", "Mars", "Ege", "Deniz",
+    "Derin", "Sarp", "Pars", "Yaman", "Ediz", "Aren", "Ateş", "Baran", "Batı", "Berkay",
+    "Can", "Cem", "Doğu", "Doruk", "Efe", "Emir", "Emre", "Eren", "Kaan", "Kerem",
+    "Koray", "Mert", "Ozan", "Pamir", "Poyraz", "Umut", "Yağız", "Yiğit"
+];
+
+const MODERN_FEMALE_NAMES = [
+    "Ada", "Alya", "Arya", "Asya", "Azra", "Bade", "Beren", "Defne", "Derin", "Duru",
+    "Ece", "Ela", "Elif", "Eylül", "Gece", "Güneş", "Hayal", "Hira", "Ilgın", "İdil",
+    "İpek", "İrem", "Lara", "Leyla", "Lina", "Masal", "Maya", "Melis", "Mila", "Mira",
+    "Nehir", "Nil", "Öykü", "Parla", "Pera", "Peri", "Rüya", "Sahra", "Sare", "Selin",
+    "Su", "Yaz", "Zeynep"
+];
+
+const MODERN_SURNAMES = [
+    "Yılmaz", "Kaya", "Demir", "Çelik", "Şahin", "Yıldız", "Yıldırım", "Öztürk", "Aydın",
+    "Özdemir", "Arslan", "Doğan", "Kılıç", "Aslan", "Çetin", "Kara", "Koç", "Kurt",
+    "Özkan", "Şimşek", "Polat", "Güler", "Erdoğan", "Bulut", "Yalçın", "Aksoy", "Koçak",
+    "Acar", "Uygun", "Tekin"
 ];
 
 // ------------------------------
@@ -129,7 +155,13 @@ async function createUsers() {
     for (let i = 0; i < TOTAL_USERS; i++) {
         const id = i + 1;
         const email = `demo${id}@test.com`;
-        const username = faker.internet.username();
+
+        const isFemale = Math.random() < 0.5;
+        const firstName = isFemale
+            ? faker.helpers.arrayElement(MODERN_FEMALE_NAMES)
+            : faker.helpers.arrayElement(MODERN_MALE_NAMES);
+        const lastName = faker.helpers.arrayElement(MODERN_SURNAMES);
+        const username = `${firstName} ${lastName}`;
 
         let uid = "";
         try {
@@ -150,7 +182,7 @@ async function createUsers() {
             search_name: username.toLowerCase(),
             profileImageUrl: photoUrl,
             birthDate: Timestamp.fromDate(faker.date.birthdate({ min: 20, max: 35, mode: 'age' })),
-            gender: 'other',
+            gender: isFemale ? 'female' : 'male',
             permissions: { locationEnabled: true, notificationsEnabled: true },
             createdAt: Timestamp.now(),
             updatedAt: Timestamp.now(),
