@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldPath } from "firebase-admin/firestore";
 
 /**
  * Retrieves all FCM tokens for a given list of user IDs.
@@ -9,30 +10,37 @@ async function getFirebaseMessagingTokensFromUserIDs(userIDs: string[]): Promise
     if (!userIDs || userIDs.length === 0) return [];
 
     const allTokens: string[] = [];
+    const chunks: string[][] = [];
 
-    // Firestore 'in' query supports up to 30 values per request.
-    // For larger groups, we split the userIDs into chunks of 30.
-    const chunks = [];
+    // Firestore 'in' sorgusu sınırı (30) için parçalara bölme
     for (let i = 0; i < userIDs.length; i += 30) {
         chunks.push(userIDs.slice(i, i + 30));
     }
 
-    for (const chunk of chunks) {
-        const userSnapshots = await admin.firestore()
-            .collection('users')
-            .where(admin.firestore.FieldPath.documentId(), 'in', chunk)
-            .get();
+    const firestore = admin.firestore();
 
-        userSnapshots.forEach(doc => {
-            const userData = doc.data();
-            // Assuming each user document has an 'fcmTokens' array as discussed.
-            if (userData.fcmTokens && Array.isArray(userData.fcmTokens)) {
-                allTokens.push(...userData.fcmTokens);
-            }
-        });
+    for (const chunk of chunks) {
+        try {
+            // "FieldPath.documentId()" kullanımını doğrudan yapıyoruz
+            const userSnapshots = await firestore
+                .collection('users')
+                .where(FieldPath.documentId(), 'in', chunk)
+                .get();
+
+            userSnapshots.forEach(doc => {
+                const userData = doc.data();
+                if (userData && Array.isArray(userData.fcmTokens)) {
+                    allTokens.push(...userData.fcmTokens);
+                }
+            });
+        } catch (error) {
+            console.error("Token çekme sırasında hata (chunk):", error);
+            // Bir parça hata alsa da diğerlerini etkilememesi için devam ediyoruz
+        }
     }
 
-    return allTokens;
+    // Tekrar eden tokenları temizle
+    return [...new Set(allTokens)];
 }
 
 /**

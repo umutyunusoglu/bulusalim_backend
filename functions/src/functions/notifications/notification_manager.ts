@@ -79,7 +79,12 @@ export class NotificationManager {
             const response = await admin.messaging().sendEachForMulticast(message);
             console.log(`Successfully sent ${response.successCount} messages; ${response.failureCount} failed.`);
 
-            // Optional: Clean up invalid tokens from database if response.responses has errors
+            for (let i = 0; i < response.responses.length; i++) {
+                if (response.responses[i].error) {
+                    console.error(`Error sending message to ${tokens[i]}:`, response.responses[i].error);
+                }
+            }
+
         } catch (error) {
             console.error("Error sending multicast notification:", error);
         }
