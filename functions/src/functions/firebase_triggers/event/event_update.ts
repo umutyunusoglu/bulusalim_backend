@@ -23,6 +23,10 @@ export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (ev
         const isLocationChanged = !beforeData.location?.isEqual(afterData.location);
 
         const isStartTimeChanged = !beforeData.startTime?.isEqual(afterData.startTime);
+
+        const isForceStarted = beforeData.status !== "ongoing" && afterData.status === "ongoing";
+        console.log("isForceStarted:", isForceStarted);
+
         console.log("isLocationChanged:", isLocationChanged);
         console.log("Previous Location:", beforeData.location);
         console.log("New Location:", afterData.location);
@@ -36,7 +40,7 @@ export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (ev
         }, { merge: true });
 
         // 3. Bildirim Gönderimi (Sadece değişiklik varsa katılımcıları çek)
-        if (isLocationChanged || isStartTimeChanged) {
+        if (isLocationChanged || isStartTimeChanged || isForceStarted) {
             const participantsSnapshot = await db.collection("events").doc(eventId).collection("participants").get();
             const participantIDs = participantsSnapshot.docs.map(doc => doc.id);
 
@@ -67,6 +71,19 @@ export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (ev
                         notificationMetadata
                     ));
                 }
+
+                if (isForceStarted) {
+                    promises.push(notifyUsers(
+                        participantIDs,
+                        {
+                            title: `📢 ${eventName} Etkinliği Başlatıldı!`, // Template literal düzeltildi
+                            body: "Etkinliği görüntülemek için tıkla!",
+                            type: "earlyStart"
+                        },
+                        notificationMetadata
+                    ));
+                }
+
 
                 // Bildirimleri paralel gönder
                 await Promise.all(promises);
