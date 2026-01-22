@@ -2,11 +2,9 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { AppNotificationPayload } from "../../../notifications/app_notification_payload";
-import NotificationManager from "../../../notifications/notification_manager";
-import { FieldValue } from "firebase-admin/firestore";
+import { notifyUsers } from "../../../notifications/notify_users";
 
 const db = admin.firestore();
-
 
 export const handleParticipantCreate = onDocumentCreated("events/{eventId}/participants/{userId}", async (event) => {
     try {
@@ -14,54 +12,52 @@ export const handleParticipantCreate = onDocumentCreated("events/{eventId}/parti
         const snapshot = event.data;
         if (!snapshot) return;
 
-        // 1. Gerekli verileri paralel çekerek zaman kazanalım
-        const [userData, eventDoc, followersOfUser] = await Promise.all([
+        // 1. Veri toplama - Participants alt koleksiyonunu da ekliyoruz
+        const [userData, eventDoc, followersSnapshot, participantsSnapshot] = await Promise.all([
             db.collection("users").doc(userId).get(),
             db.collection("events").doc(eventId).get(),
-            db.collection("users").doc(userId).collection("followers").get()
+            db.collection("users").doc(userId).collection("followers").get(),
+            db.collection("events").doc(eventId).collection("participants").get() // Alt koleksiyonu çekiyoruz
         ]);
 
-        const username = userData.data()?.username || "Someone";
-        const userImage = userData.data()?.profileImageUrl;
+        const user = userData.data();
         const eventData = eventDoc.data();
-        const eventCategory = eventData?.hobbies?.[0] || "activity";
-        const eventName = eventData?.name || "an event";
 
-        const targetIds = followersOfUser.docs.map(doc => doc.id);
-        if (targetIds.length === 0) return;
+        const username = user?.username || "Biri";
+        const userImage = user?.profileImageUrl;
+        const eventName = eventData?.name || "bir etkinlik";
+        const category = eventData?.hobbies?.[0] || "etkinlik";
 
-        // 2. Push Bildirimlerini Gönder
-        const notificationPayload: AppNotificationPayload = {
+        const sharedData = { eventId, userId, eventName, userImage };
+
+        // 2. Takipçileri Belirle
+        const followerIds = followersSnapshot.docs.map(doc => doc.id);
+        const followerPayload: AppNotificationPayload = {
             title: `${username} bir etkinliğe katıldı!`,
-            body: `${username}, bir ${eventCategory} etkinliğine katıldı!\nGöz atmak için tıkla!`,
+            body: `${username}, bir ${category} etkinliğine katıldı!`,
             type: "join"
         };
 
-        // NotificationManager await edilmeli (içeride asenkron işlem varsa)
-        await NotificationManager.sendToMultipleUsers(targetIds, notificationPayload);
+        // 3. Katılımcıları Belirle (Alt koleksiyondan gelen veriyi filtrele)
+        // Döküman ID'leri userId'ye denk geldiği için doc.id kullanıyoruz
+        const allParticipantIds = participantsSnapshot.docs.map(doc => doc.id);
+        const otherParticipants = allParticipantIds.filter(id => id !== userId);
 
-        // 3. Uygulama İçi Bildirimleri Firestore'a Yaz (Promise.all ile)
-        const writePromises = targetIds.map((targetId) => {
-            return db.collection("users")
-                .doc(targetId)
-                .collection("notifications")
-                .doc(`${userId}_join_${eventId}`) // Çakışmayı önlemek için benzersiz ID
-                .set({
-                    type: "join",
-                    title: eventName,
-                    message: `${username} buluşmaya katıldı.`,
-                    avatarUrl: userImage,
-                    createdAt: FieldValue.serverTimestamp(),
-                    eventId: eventId,
-                    userId: userId
-                });
-        });
+        const participantPayload: AppNotificationPayload = {
+            title: `${eventName} için yeni katılımcı!`,
+            body: `${username} bu etkinliğe katıldı. Kimlerin geldiğine bak!`,
+            type: "participants"
+        };
 
-        await Promise.all(writePromises);
+        // 4. Bildirimleri Gönder
+        await Promise.all([
+            notifyUsers(followerIds, followerPayload, sharedData),
+            notifyUsers(otherParticipants, participantPayload, sharedData)
+        ]);
 
-        logger.info(`${username}'ın katılımı ${targetIds.length} takipçisine bildirildi.`);
+        logger.info(`Bildirimler ${followerIds.length} takipçiye ve ${otherParticipants.length} katılımcıya iletildi.`);
 
     } catch (error) {
-        logger.error("An unexpected error occurred in handleParticipantCreate:", error);
+        logger.error("handleParticipantCreate Hatası:", error);
     }
 });

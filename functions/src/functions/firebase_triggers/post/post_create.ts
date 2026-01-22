@@ -1,78 +1,56 @@
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
-import { AppNotificationPayload } from "../../notifications/app_notification_payload";
-import NotificationManager from "../../notifications/notification_manager";
 import { FieldValue } from "firebase-admin/firestore";
+import { notifyUsers } from "../../notifications/notify_users";
 
 const db = admin.firestore();
 
 export const handlePostCreate = onDocumentCreated("posts/{postId}", async (event) => {
     try {
         const snapshot = event.data;
-        if (!snapshot) {
-            logger.error("No snapshot found.");
-            return;
-        }
+        if (!snapshot) return;
 
         const postData = snapshot.data();
-        if (!postData) {
-            logger.error("Snapshot contains no data.");
-            return;
-        }
+        if (!postData) return;
 
         const postId = snapshot.id;
         const postOwnerID = postData.creator?.userID;
         const creatorUsername = postData.creator?.username || "Bir kullanıcı";
-        const creatorImage = postData.creator?.profileImageUrl || "";
+        const creatorImage = postData.creator?.profileImageUrl;
         const eventID = postData.eventID;
 
-        // 1. Hedef listesini oluşturma (Kendisi hariç katılımcılar)
-        const participants = postData.participants || [];
-        const participantIDs: string[] = participants.map((p: any) => p.userID);
-
-        // Eğer post sahibi katılımcılar listesinde yoksa ekleyip sonra filtreliyoruz
-        // Ya da direkt katılımcılardan post sahibini çıkarıyoruz:
+        // 1. Hedef Listesini Belirle (Kendisi hariç katılımcılar)
+        const participantIDs: string[] = (postData.participants || []).map((p: any) => p.userID);
         const targetIDs = participantIDs.filter(id => id !== postOwnerID);
 
-        if (targetIDs.length === 0) {
-            logger.info("Bildirim gönderilecek başka katılımcı yok.");
-        } else {
-            // 2. Push Bildirimi Gönder
-            const payload: AppNotificationPayload = {
-                title: "Buluşmandan biri bir fotoğraf paylaştı!",
-                body: "Görüntülemek için tıkla!",
-                type: "tag"
-            };
-
-            await NotificationManager.sendToMultipleUsers(targetIDs, payload);
-
-            // 3. Uygulama içi bildirimleri Firestore'a kaydet (Paralel işlem)
-            const notificationPromises = targetIDs.map(targetID => {
-                return db.collection("users").doc(targetID).collection("notifications").add({
-                    type: "participants",
-                    title: "Yeni Paylaşım",
-                    message: `${creatorUsername} senin bulunduğun bir buluşmada bir gönderi paylaştı.`,
-                    avatarUrl: creatorImage,
-                    createdAt: FieldValue.serverTimestamp(),
+        // 2. Bildirim Gönder (Yeni notifyUsers mantığı)
+        if (targetIDs.length > 0) {
+            await notifyUsers(
+                targetIDs,
+                {
+                    title: "Yeni bir fotoğraf paylaşıldı!",
+                    body: `${creatorUsername} senin de olduğun grupta bir paylaşım yaptı.`,
+                    type: "participants"
+                },
+                {
                     eventId: eventID,
                     userId: postOwnerID,
-                    postId: postId // Hangi post olduğu bilgisi önemli
-                });
-            });
-
-            await Promise.all(notificationPromises);
+                    postId: postId,
+                    avatarUrl: creatorImage
+                }
+            );
         }
 
-        // 4. Feed koleksiyonuna kopyala
+        // 3. Feed Koleksiyonuna Yaz
         await db.collection("feed").doc(postId).set({
             ...postData,
-            createdAt: FieldValue.serverTimestamp() // Sıralama için eklendi
+            createdAt: FieldValue.serverTimestamp()
         });
 
-        logger.info(`Feed entry created and notifications sent for post: ${postId}`);
+        logger.info(`Post ${postId} için feed oluşturuldu ve ${targetIDs.length} kişiye bildirim gitti.`);
 
     } catch (error) {
-        logger.error("An unexpected error occurred in handlePostCreate:", error);
+        logger.error("handlePostCreate Hatası:", error);
     }
 });
