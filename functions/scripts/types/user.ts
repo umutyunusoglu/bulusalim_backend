@@ -1,4 +1,4 @@
-import { Timestamp } from "firebase/firestore";
+import {Timestamp} from "firebase/firestore";
 
 type User = {
     userID: string;
@@ -47,5 +47,5 @@ type Friend = {
 }
 
 
-export { User, UserHobby, UserEvent, UserPermissions, Friend };
+export {User, UserHobby, UserEvent, UserPermissions, Friend};
 

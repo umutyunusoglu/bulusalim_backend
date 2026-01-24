@@ -11,4 +11,4 @@ interface AppNotificationPayload {
     actionText?: string; // Optional: Label for the action button (e.g., 'View Event')
 }
 
-export type { AppNotificationPayload };
+export type {AppNotificationPayload};

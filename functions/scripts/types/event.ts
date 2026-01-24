@@ -1,5 +1,5 @@
-import { GeoPoint } from "firebase/firestore";
-import { FeedTypeEnum } from "./feed_enum";
+import {GeoPoint} from "firebase/firestore";
+import {FeedTypeEnum} from "./feed_enum";
 
 type Event = {
     eventID: string;
@@ -17,7 +17,7 @@ type Event = {
     updatedAt: FirebaseFirestore.Timestamp;
     participants: EventParticipant[];
     feedType: FeedTypeEnum;
-    geohash: String,
+    geohash: string,
     isLocked: boolean,
 
 }
@@ -45,15 +45,15 @@ type Message = {
 }
 
 enum UserEventStatus {
-    Saved = 'saved',
-    Pending = 'pending',
-    Accepted = 'accepted',
-    Rejected = 'rejected',
-    Upcoming = 'upcoming',
-    Ongoing = 'ongoing',
-    Completed = 'completed',
-    Cancelled = 'cancelled',
+    Saved = "saved",
+    Pending = "pending",
+    Accepted = "accepted",
+    Rejected = "rejected",
+    Upcoming = "upcoming",
+    Ongoing = "ongoing",
+    Completed = "completed",
+    Cancelled = "cancelled",
 }
 
 
-export { Event, EventAttributes, EventParticipant, Message };
+export {Event, EventAttributes, EventParticipant, Message};

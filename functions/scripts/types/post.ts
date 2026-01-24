@@ -1,5 +1,5 @@
-import { GeoPoint } from "firebase/firestore";
-import { FeedTypeEnum } from "./feed_enum.js";
+import {GeoPoint} from "firebase/firestore";
+import {FeedTypeEnum} from "./feed_enum.js";
 type Post = {
     postID: string;
     creator: PostParticipant;
@@ -8,7 +8,7 @@ type Post = {
     createdAt: FirebaseFirestore.Timestamp;
     updatedAt: FirebaseFirestore.Timestamp;
     location: GeoPoint;
-    displayAddress: String;
+    displayAddress: string;
     hobbies?: string[];
     imageUrls: string[];
     participants?: PostParticipant[];
@@ -31,14 +31,12 @@ type PinnedPost = {
 }
 
 
-
 type PostParticipant = {
     userID: string;
     username?: string;
     profileImageUrl?: string;
 }
 
-export { Post, PostParticipant, PinnedPost };
-
+export {Post, PostParticipant, PinnedPost};
 
 
