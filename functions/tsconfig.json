@@ -1,19 +1,19 @@
 {
   "compilerOptions": {
-    "module": "NodeNext",
+    "module": "commonjs",
+    "moduleResolution": "node",
     "esModuleInterop": true,
-    "moduleResolution": "nodenext",
     "noImplicitReturns": true,
-    "noUnusedLocals": true,
+    "noUnusedLocals": false,
     "outDir": "lib",
+    "rootDir": "src", // MUTLAKA BURADA OLMALI
     "sourceMap": true,
     "strict": true,
-    "target": "es2017"
+    "target": "es2020",
+    "skipLibCheck": true
   },
   "compileOnSave": true,
   "include": [
-    "src",
-    "scripts"
-  ],
-  "rootDir": "src"
+    "src"
+  ]
 }

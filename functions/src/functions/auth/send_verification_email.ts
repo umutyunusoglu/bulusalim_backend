@@ -2,6 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { root_mail, transporter } from "../email/mail_sender";
 import * as admin from "firebase-admin";
 import crypto from "crypto";
+import { FieldValue } from "firebase-admin/firestore";
 
 const db = admin.firestore();
 
@@ -59,7 +60,7 @@ export const sendVerificationEmail = onCall(async (request) => {
         await userRef.set({
             code: OTP,
             email: targetEmail,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
             expiresAt: Date.now() + 10 * 60 * 1000 // 10 dakika geçerlilik
         });
 
