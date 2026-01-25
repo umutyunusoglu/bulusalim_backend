@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "@types/nodemailer": "^7.0.5"
+  },
+  "dependencies": {
+    "firebase-functions": "^7.0.3"
   }
 }
