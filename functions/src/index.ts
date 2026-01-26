@@ -14,10 +14,11 @@ setGlobalOptions({ maxInstances: 10, timeoutSeconds: 300, memory: "1GiB" });
 import { reportUser } from "./functions/reporting/report";
 import { sendVerificationEmail } from "./functions/auth/send_verification_email";
 import { verifyEmailCode } from "./functions/auth/verify_email_code";
-import { handleEventCreate, handleEventUpdate, handleFolloweeDelete, handleFollowerCreate, handleFollowRequestCreate, handleParticipantCreate, handlePostCreate, handlePostUpdate } from "./functions/firebase_triggers";
+import { handleEventCreate, handleEventUpdate, handleFolloweeDelete, handleFollowerCreate, handleFollowRequestCreate, handleParticipantCreate, handlePostCreate, handlePostUpdate, handleUserUpdate } from "./functions/firebase_triggers";
 
 
 export {
+  handleUserUpdate,
   handleEventCreate,
   handleEventUpdate,
   handlePostCreate,
