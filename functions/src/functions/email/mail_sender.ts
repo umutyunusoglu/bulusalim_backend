@@ -25,4 +25,4 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export { transporter, root_mail, }
+export {transporter, root_mail};

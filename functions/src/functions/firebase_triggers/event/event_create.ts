@@ -1,7 +1,6 @@
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
-import { hash } from "crypto";
 
 const db = admin.firestore();
 
@@ -34,6 +33,5 @@ export const handleEventCreate = onDocumentCreated("events/{eventId}", async (ev
     logger.error("An unexpected error occurred in handleEventCreate:", error);
   }
 });
-
 
 
