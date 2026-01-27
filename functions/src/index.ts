@@ -15,10 +15,12 @@ import { reportUser } from "./functions/reporting/report";
 import { sendVerificationEmail } from "./functions/auth/send_verification_email";
 import { verifyEmailCode } from "./functions/auth/verify_email_code";
 import { handleEventCreate, handleEventUpdate, handleFolloweeDelete, handleFollowerCreate, handleFollowRequestCreate, handleParticipantCreate, handlePostCreate, handlePostUpdate, handleUserUpdate } from "./functions/firebase_triggers";
+import { deleteAccount } from "./functions/auth/delete_account";
 
 
 export {
   handleUserUpdate,
+  deleteAccount,
   handleEventCreate,
   handleEventUpdate,
   handlePostCreate,

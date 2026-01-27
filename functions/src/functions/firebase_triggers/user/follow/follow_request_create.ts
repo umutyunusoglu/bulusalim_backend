@@ -1,14 +1,14 @@
-import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
-import {FieldValue} from "firebase-admin/firestore";
-import {notifyUsers} from "../../../notifications/notify_users";
+import { FieldValue } from "firebase-admin/firestore";
+import { notifyUsers } from "../../../notifications/notify_users";
 
 const db = admin.firestore();
 
 export const handleFollowRequestCreate = onDocumentCreated("users/{targetId}/followRequests/{userId}", async (event) => {
   try {
-    const {targetId, userId} = event.params;
+    const { targetId, userId } = event.params;
 
     // 1. Gerekli referanslar ve veriler
     const myNotificationRef = db.collection("users").doc(userId).collection("followNotifications").doc(targetId);
@@ -37,6 +37,8 @@ export const handleFollowRequestCreate = onDocumentCreated("users/{targetId}/fol
     const targetDocSnap = await targetNotificationRef.get();
     const followNotifData = {
       "userID": userId,
+      "username": username,
+      "profileImageUrl": avatarUrl,
       "status": "pending",
       "type": "followRequest",
       "updatedAt": FieldValue.serverTimestamp(),
