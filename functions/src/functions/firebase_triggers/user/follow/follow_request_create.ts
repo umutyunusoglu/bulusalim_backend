@@ -1,14 +1,14 @@
-import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
-import {FieldValue} from "firebase-admin/firestore";
-import {notifyUsers} from "../../../notifications/notify_users";
+import { FieldValue } from "firebase-admin/firestore";
+import { notifyUsers } from "../../../notifications/notify_users";
 
 const db = admin.firestore();
 
 export const handleFollowRequestCreate = onDocumentCreated("users/{targetId}/followRequests/{userId}", async (event) => {
   try {
-    const {targetId, userId} = event.params;
+    const { targetId, userId } = event.params;
 
     // 1. Gerekli referanslar ve veriler
     const myNotificationRef = db.collection("users").doc(userId).collection("followNotifications").doc(targetId);
@@ -34,7 +34,20 @@ export const handleFollowRequestCreate = onDocumentCreated("users/{targetId}/fol
 
     // İŞLEM 2: Karşı Taraf (Alıcının tarafı)
     // Alıcıya "Takip İsteği" (pending) durumunu kaydediyoruz/güncelliyoruz.
+
+
+
+
     const targetDocSnap = await targetNotificationRef.get();
+
+    const targetFollowersRef = db.collection("users").doc(targetId).collection("followers");
+    const targetFollowersSnapshot = await targetFollowersRef.get();
+
+    const isTargetFollowingMe = targetFollowersSnapshot.docs.some((doc) => doc.id === userId);
+
+
+
+
     const followNotifData = {
       "userID": userId,
       "username": username,
@@ -50,6 +63,9 @@ export const handleFollowRequestCreate = onDocumentCreated("users/{targetId}/fol
         "createdAt": FieldValue.serverTimestamp(),
       });
     } else {
+
+
+
       batch.update(targetNotificationRef, followNotifData);
     }
 
