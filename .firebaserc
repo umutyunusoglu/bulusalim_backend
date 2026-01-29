@@ -1,5 +1,11 @@
 {
   "projects": {
     "default": "bulusalim-e8e7c"
+  },
+  "targets": {},
+  "etags": {
+    "bulusalim-e8e7c": {
+      "extensionInstances": {}
+    }
   }
 }
