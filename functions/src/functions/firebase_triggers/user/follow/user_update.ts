@@ -1,4 +1,4 @@
-import {onDocumentUpdated} from "firebase-functions/v2/firestore";
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
@@ -19,14 +19,19 @@ export const handleUserUpdate = onDocumentUpdated("users/{userID}", async (event
     // 2. Değişiklik Kontrolü (Change Detection)
     // Eğer username veya resim değişmediyse fonksiyonu burada bitir.
     // Bu işlem maliyeti ve fonksiyon süresini ciddi oranda düşürür.
-    if (beforeData.username === afterData.username &&
-            beforeData.profileImageUrl === afterData.profileImageUrl) {
-      logger.info("No profile changes detected, skipping update.");
+    if (
+      beforeData.username === afterData.username &&
+      beforeData.profileImageUrl === afterData.profileImageUrl &&
+      beforeData.universityName === afterData.universityName // Bu satırı ekledik
+    ) {
+      logger.info("No relevant profile changes detected, skipping update.");
       return;
     }
 
     const username = afterData.username;
     const profileImageUrl = afterData.profileImageUrl;
+    const university = afterData.universityName;
+
 
     logger.info(`Starting profile update propagation for user: ${userID}`);
 
@@ -66,7 +71,8 @@ export const handleUserUpdate = onDocumentUpdated("users/{userID}", async (event
         updatePromises.push(eventRef.update({
           "creator.username": username,
           "creator.profileImageUrl": profileImageUrl,
-        }));
+          "creator.university": university
+        },));
       }
 
       // Katılımcı bilgisini güncelle
@@ -79,6 +85,7 @@ export const handleUserUpdate = onDocumentUpdated("users/{userID}", async (event
         participantRef.update({
           username: username,
           profileImageUrl: profileImageUrl,
+          university: university
         }).catch((err) => {
           // Katılımcı verisi silinmişse (örneğin etkinlikten çıkmışsa) hatayı yutabiliriz.
           logger.warn(`Participant doc update failed for event ${eventId}: ${err.message}`);
@@ -102,6 +109,7 @@ export const handleUserUpdate = onDocumentUpdated("users/{userID}", async (event
         updatePromises.push(postRef.update({
           "creator.username": username,
           "creator.profileImageUrl": profileImageUrl,
+          "creator.university": university
         }));
       }
     });
