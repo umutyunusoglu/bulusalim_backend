@@ -17,6 +17,7 @@
   "dependencies": {
     "@faker-js/faker": "^10.1.0",
     "@firebase/rules-unit-testing": "^5.0.0",
+    "@google-cloud/tasks": "^6.2.1",
     "@huggingface/inference": "^4.13.5",
     "@types/crypto-js": "^4.2.2",
     "crypto": "^1.0.1",

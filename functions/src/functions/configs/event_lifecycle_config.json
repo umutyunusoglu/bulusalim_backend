@@ -1,0 +1,10 @@
+{
+    "firebase": {
+        "projectId": "bulusalim-e8e7c",
+        "location": "us-central1"
+    },
+    "cloudTasks": {
+        "queueName": "event-lifecycle",
+        "workerFunctionName": "startEventLogic"
+    }
+}

@@ -16,6 +16,8 @@ import { sendVerificationEmail } from "./functions/auth/send_verification_email"
 import { verifyEmailCode } from "./functions/auth/verify_email_code";
 import { handleEventCreate, handleEventUpdate, handleFolloweeDelete, handleFollowerCreate, handleFollowRequestCreate, handleParticipantCreate, handlePostCreate, handlePostDelete, handlePostUpdate, handleUserUpdate } from "./functions/firebase_triggers";
 import { deleteAccount } from "./functions/auth/delete_account";
+import { startEventLogic } from "./functions/event_lifecycle/start_event_logic";
+import { stopEventLogic } from "./functions/event_lifecycle/stop_event_logic";
 
 
 export {
@@ -33,4 +35,6 @@ export {
   handleParticipantCreate,
   sendVerificationEmail,
   verifyEmailCode,
+  startEventLogic,
+  stopEventLogic
 };

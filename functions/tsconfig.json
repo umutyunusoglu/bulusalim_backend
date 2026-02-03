@@ -5,6 +5,7 @@
     "esModuleInterop": true,
     "noImplicitReturns": true,
     "noUnusedLocals": false,
+    "resolveJsonModule": true,
     "outDir": "lib",
     "rootDir": "src", // MUTLAKA BURADA OLMALI
     "sourceMap": true,

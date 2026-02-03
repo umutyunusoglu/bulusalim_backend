@@ -1,11 +1,23 @@
 
-import {onDocumentUpdated} from "firebase-functions/v2/firestore";
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
-import {NotificationMetadata, notifyUsers} from "../../notifications/notify_users";
-import {FieldValue} from "firebase-admin/firestore";
+import { NotificationMetadata, notifyUsers } from "../../notifications/notify_users";
+import { FieldValue } from "firebase-admin/firestore";
 const db = admin.firestore();
 
+const { CloudTasksClient } = require('@google-cloud/tasks');
+const tasksClient = new CloudTasksClient();
+
+// Proje bilgilerin (Bunları kendi bilgilerine göre doldur)
+import * as config from "../../configs/event_lifecycle_config.json";
+
+const PROJECT = config.firebase.projectId;
+const LOCATION = config.firebase.location;
+const QUEUE = config.cloudTasks.queueName;
+
+// Worker URL'i otomatik oluşturuyoruz
+const WORKER_URL = `https://${LOCATION}-${PROJECT}.cloudfunctions.net/${config.cloudTasks.workerFunctionName}`;
 
 export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (event) => {
   try {
@@ -14,6 +26,7 @@ export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (ev
     const beforeData = event.data.before.data();
     const afterData = event.data.after.data();
     const eventId = event.data.after.id;
+    const eventRef = event.data.after.ref;
 
     if (!afterData || !beforeData) return;
 
@@ -35,7 +48,16 @@ export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (ev
     await db.collection("feed").doc(eventId).set({
       ...afterData,
       updatedAt: FieldValue.serverTimestamp(),
-    }, {merge: true});
+    }, { merge: true });
+
+
+    if (isForceStarted || isStartTimeChanged) {
+      if (beforeData.eventStartTaskName) {
+        await tasksClient.deleteTask({ name: beforeData.eventStartTaskName }).catch(() => {
+          logger.info("Silinecek task zaten çalışmış veya bulunamadı.");
+        });
+      }
+    }
 
     // 3. Bildirim Gönderimi (Sadece değişiklik varsa katılımcıları çek)
     if (isLocationChanged || isStartTimeChanged || isForceStarted) {
@@ -43,7 +65,7 @@ export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (ev
       const participantIDs = participantsSnapshot.docs.map((doc) => doc.id);
 
       if (participantIDs.length > 0) {
-        const notificationMetadata: NotificationMetadata = {eventId};
+        const notificationMetadata: NotificationMetadata = { eventId };
         const promises: Promise<void>[] = [];
 
         if (isLocationChanged) {
@@ -59,6 +81,24 @@ export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (ev
         }
 
         if (isStartTimeChanged) {
+
+          if (afterData.status !== "ongoing" && afterData.status !== "completed") {
+            const parent = tasksClient.queuePath(PROJECT, LOCATION, QUEUE);
+            const task = {
+              httpRequest: {
+                httpMethod: 'POST',
+                url: WORKER_URL,
+                body: Buffer.from(JSON.stringify({ eventId })).toString('base64'),
+                headers: { 'Content-Type': 'application/json' },
+              },
+              scheduleTime: { seconds: afterData.startTime.seconds },
+            };
+
+            const [response] = await tasksClient.createTask({ parent, task });
+            await eventRef.update({ eventStartTaskName: response.name });
+
+          }
+
           promises.push(notifyUsers(
             participantIDs,
             {
