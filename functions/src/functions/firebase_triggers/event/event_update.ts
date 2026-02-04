@@ -45,19 +45,8 @@ export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (ev
     const eventName = afterData.name || "Etkinlik";
 
     // 2. Feed Güncelleme
-    await db.collection("feed").doc(eventId).set({
-      ...afterData,
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
 
 
-    if (isForceStarted || isStartTimeChanged) {
-      if (beforeData.eventStartTaskName) {
-        await tasksClient.deleteTask({ name: beforeData.eventStartTaskName }).catch(() => {
-          logger.info("Silinecek task zaten çalışmış veya bulunamadı.");
-        });
-      }
-    }
 
     // 3. Bildirim Gönderimi (Sadece değişiklik varsa katılımcıları çek)
     if (isLocationChanged || isStartTimeChanged || isForceStarted) {
@@ -81,6 +70,10 @@ export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (ev
         }
 
         if (isStartTimeChanged) {
+
+          await tasksClient.deleteTask({ name: beforeData.eventStartTaskName }).catch(() => {
+            logger.info("Silinecek task zaten çalışmış veya bulunamadı.");
+          });
 
           if (afterData.status !== "ongoing" && afterData.status !== "completed") {
             const parent = tasksClient.queuePath(PROJECT, LOCATION, QUEUE);
@@ -111,6 +104,11 @@ export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (ev
         }
 
         if (isForceStarted) {
+
+          await tasksClient.deleteTask({ name: beforeData.eventStartTaskName }).catch(() => {
+            logger.info("Silinecek task zaten çalışmış veya bulunamadı.");
+          });
+
           promises.push(notifyUsers(
             participantIDs,
             {

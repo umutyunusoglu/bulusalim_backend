@@ -31,10 +31,6 @@ export const handleEventCreate = onDocumentCreated("events/{eventId}", async (ev
     }
 
     try {
-      await db.collection("feed").doc(eventId).set({
-        ...eventData,
-      });
-
 
       if (eventData.startTime) {
         const parent = tasksClient.queuePath(PROJECT, LOCATION, QUEUE);

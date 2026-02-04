@@ -49,7 +49,7 @@ export const startEventLogic = onRequest(async (req, res) => {
 
         if (!snapshot.empty) {
             snapshot.forEach((doc) => {
-                const logRef = db.collection('users').doc(doc.id).collection('eventLogs').doc(eventId);
+                const logRef = db.collection('users').doc(doc.id).collection('eventLog').doc(eventId);
                 // ÖNEMLİ: update yerine set({ ... }, { merge: true }) kullanıldı.
                 // Eğer doküman yoksa 'update' patlar, 'set merge' oluşturur.
                 batch.set(logRef, { status: 'ongoing' }, { merge: true });

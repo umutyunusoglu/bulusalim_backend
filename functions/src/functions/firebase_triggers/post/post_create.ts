@@ -1,8 +1,8 @@
-import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
-import {FieldValue} from "firebase-admin/firestore";
-import {notifyUsers} from "../../notifications/notify_users";
+import { FieldValue } from "firebase-admin/firestore";
+import { notifyUsers } from "../../notifications/notify_users";
 
 const db = admin.firestore();
 
@@ -43,10 +43,6 @@ export const handlePostCreate = onDocumentCreated("posts/{postId}", async (event
     }
 
     // 3. Feed Koleksiyonuna Yaz
-    await db.collection("feed").doc(postId).set({
-      ...postData,
-      createdAt: FieldValue.serverTimestamp(),
-    });
 
     logger.info(`Post ${postId} için feed oluşturuldu ve ${targetIDs.length} kişiye bildirim gitti.`);
   } catch (error) {

@@ -1,4 +1,4 @@
-import {onDocumentUpdated} from "firebase-functions/v2/firestore";
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 const db = admin.firestore();
@@ -23,9 +23,7 @@ export const handlePostUpdate = onDocumentUpdated("posts/{postId}", async (event
       return;
     }
     try {
-      await db.collection("feed").doc(postId).update({
-        ...afterData,
-      });
+
       await db.collection("users").doc(postOwnerID).collection("posts").doc(postId).set({
         ...afterData,
       });

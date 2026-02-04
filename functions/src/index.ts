@@ -18,6 +18,7 @@ import { handleEventCreate, handleEventUpdate, handleFolloweeDelete, handleFollo
 import { deleteAccount } from "./functions/auth/delete_account";
 import { startEventLogic } from "./functions/event_lifecycle/start_event_logic";
 import { stopEventLogic } from "./functions/event_lifecycle/stop_event_logic";
+import { sendEventInvitation } from "./functions/send_event_invitation";
 
 
 export {
@@ -36,5 +37,6 @@ export {
   sendVerificationEmail,
   verifyEmailCode,
   startEventLogic,
-  stopEventLogic
+  stopEventLogic,
+  sendEventInvitation
 };

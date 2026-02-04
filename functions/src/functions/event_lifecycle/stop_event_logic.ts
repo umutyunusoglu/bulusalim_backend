@@ -79,7 +79,7 @@ export const stopEventLogic = onRequest(async (req, res) => {
 
         if (!participantsSnapshot.empty) {
             for (const doc of participantsSnapshot.docs) {
-                const logRef = db.collection('users').doc(doc.id).collection('eventLogs').doc(eventId);
+                const logRef = db.collection('users').doc(doc.id).collection('eventLog').doc(eventId);
 
                 batch.set(logRef, {
                     status: 'completed',

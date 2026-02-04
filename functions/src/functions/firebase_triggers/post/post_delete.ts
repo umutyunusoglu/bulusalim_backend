@@ -15,7 +15,6 @@ export const handlePostDelete = onDocumentDeleted("posts/{postId}", async (event
     const postOwnerID = event.data.data().creator.userID;
 
     try {
-        await db.collection("feed").doc(postId).delete();
         await db.collection("users").doc(postOwnerID).collection("posts").doc(postId).delete();
         logger.info(`Feed entry updated for post: ${postId}`);
     } catch (dbError) {
