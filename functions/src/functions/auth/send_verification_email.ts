@@ -36,7 +36,7 @@ export const sendVerificationEmail = onCall(async (request) => {
   if (lastDoc.exists) {
     const lastSent = lastDoc.data()?.createdAt?.toMillis() || 0;
     const now = Date.now();
-    if (now - lastSent < 60000) { // 60 saniye sınırı
+    if (now - lastSent < 10000) { // 60 saniye sınırı
       throw new HttpsError("resource-exhausted", "Çok sık kod gönderdiniz. Lütfen bir dakika bekleyin.");
     }
   }

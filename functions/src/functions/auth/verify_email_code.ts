@@ -29,13 +29,13 @@ export const verifyEmailCode = onCall(async (request) => {
 
   const data = doc.data();
   const serverOTP = data?.code;
-  const expiresAt = data?.expiresAt; // Kaydederken eklediğimiz son kullanma tarihi
+  const expiresAt = data?.expiresAt; // Bu bir Timestamp nesnesi
 
-  if (Date.now() > expiresAt) {
-    await userRef.delete(); // Süresi dolmuş kodu temizle
+// Karşılaştırmayı şu şekilde güncelleyin:
+if (expiresAt && Date.now() > expiresAt.toMillis()) {
+    await userRef.delete(); 
     throw new HttpsError("deadline-exceeded", "Kodun süresi dolmuş. Lütfen yeni bir kod isteyin.");
-  }
-
+}
   if (userOTP !== serverOTP) {
     return { success: false, message: "Girdiğiniz kod hatalı." };
   }
