@@ -36,7 +36,7 @@ export const sendEventInvitation = onCall(async (request) => {
         // 4. Opsiyonel: Etkinlik var mı kontrolü (Önerilir)
         const eventDoc = await db.collection("events").doc(eventID).get();
         if (!eventDoc.exists) {
-            throw new HttpsError("not-found", "Davet edilmek istenen etkinlik bulunamadı.");
+            throw new HttpsError("not-found", "Davet edilmek istenen buluşma bulunamadı.");
         }
 
         // 5. Bildirim Hazırlığı

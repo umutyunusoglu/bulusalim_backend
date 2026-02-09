@@ -28,14 +28,14 @@ export const startEventLogic = onRequest(async (req, res) => {
         const eventDoc = await eventRef.get();
 
         if (!eventDoc.exists) {
-            logger.warn(`UYARI: Etkinlik bulunamadı: ${eventId}`);
-            res.status(404).send("Etkinlik bulunamadı.");
+            logger.warn(`UYARI: Buluşma bulunamadı: ${eventId}`);
+            res.status(404).send("Buluşma bulunamadı.");
             return;
         }
 
         // Zaten çalışıyorsa ve task adı kayıtlıysa işlem yapma
         if (eventDoc.data()?.status === 'ongoing') {
-            logger.info(`BİLGİ: Etkinlik zaten yayında: ${eventId}`);
+            logger.info(`BİLGİ: Buluşma zaten yayında: ${eventId}`);
             res.status(200).send("Zaten yayında.");
             return;
         }

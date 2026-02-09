@@ -30,7 +30,7 @@ export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (ev
     const isStartTimeChanged = !beforeData.startTime?.isEqual(afterData.startTime);
     const isForceStarted = beforeData.status !== "ongoing" && afterData.status === "ongoing";
 
-    const eventName = afterData.name || "Etkinlik";
+    const eventName = afterData.name || "Buluşma";
     const oldTaskName = beforeData.eventStartTaskName;
 
     // 2. Task Yönetimi (Silme ve Yeni Oluşturma)
