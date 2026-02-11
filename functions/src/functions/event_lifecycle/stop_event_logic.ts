@@ -52,11 +52,10 @@ export const stopEventLogic = onRequest(async (req, res) => {
 
         const oneDayInMs = 24 * 60 * 60 * 1000;
         // Eğer veride zaten varsa onu koru, yoksa yeni tarih oluştur
-        const existingExpires = eventData?.expiresAt;
-        const newExpiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + oneDayInMs);
-
-        // Eğer zaten expiresAt varsa onu kullan, yoksa yenisini kullan
-        const finalExpiresAt = existingExpires || newExpiresAt;
+      // 24 Saat hesapla
+        const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+        const expirationDate = new Date(Date.now() + ONE_DAY_MS);
+        const finalExpiresAt = admin.firestore.Timestamp.fromDate(expirationDate);
 
         const participantsSnapshot = await eventRef.collection('participants').get();
 
@@ -102,7 +101,7 @@ export const stopEventLogic = onRequest(async (req, res) => {
 
         await Promise.all(batchPromises);
 
-        logger.info(`GÜNCELLEME BAŞARILI: expiresAt eklendi/güncellendi.`);
+        logger.info(`GÜNCELLEME BAŞARI  LI: expiresAt eklendi/güncellendi.`);
         res.status(200).send("Event completed ve expiresAt set edildi.");
 
     } catch (error: any) {
