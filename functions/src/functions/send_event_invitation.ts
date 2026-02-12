@@ -38,7 +38,9 @@ export const sendEventInvitation = onCall(async (request) => {
         if (!eventDoc.exists) {
             throw new HttpsError("not-found", "Davet edilmek istenen buluşma bulunamadı.");
         }
+        
 
+        //TODO: kimden geldiği yazsın
         // 5. Bildirim Hazırlığı
         const payload: AppNotificationPayload = {
             title: toUsername, // Burada bir mantık hatası olabilir: Başlık genelde gönderen kişinin adı olur.

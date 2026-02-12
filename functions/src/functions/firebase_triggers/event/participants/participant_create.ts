@@ -25,8 +25,8 @@ export const handleParticipantCreate = onDocumentCreated("events/{eventId}/parti
 
     const username = user?.username || "Biri";
     const userImage = user?.profileImageUrl;
-    const eventName = eventData?.name || "bir etkinlik";
-    const category = eventData?.hobbies?.[0] || "etkinlik";
+    const eventName = eventData?.name || "bir buluşma";
+    const category = eventData?.hobbies?.[0] || "buluşma";
 
     const sharedData = {eventId, userId, eventName, userImage};
 

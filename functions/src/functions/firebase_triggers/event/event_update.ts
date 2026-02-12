@@ -100,8 +100,8 @@ export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (ev
 
       if (isForceStarted) {
         promises.push(notifyUsers(participantIDs, {
-          title: `📢 ${eventName} Etkinliği Başlatıldı!`,
-          body: "Etkinliği görüntülemek için tıkla!",
+          title: `📢 ${eventName} Buluşması Başlatıldı!`,
+          body: "Buluşmayı görüntülemek için tıkla!",
           type: "earlyStart",
         }, notificationMetadata));
       }

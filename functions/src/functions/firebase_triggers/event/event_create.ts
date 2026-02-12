@@ -14,6 +14,7 @@ const LOCATION = config.firebase.location;
 const QUEUE = config.cloudTasks.queueName;
 const WORKER_URL = `https://${LOCATION}-${PROJECT}.cloudfunctions.net/startEventLogic`;
 
+
 export const handleEventCreate = onDocumentCreated("events/{eventId}", async (event) => {
   try {
     const snapshot = event.data;
@@ -30,12 +31,14 @@ export const handleEventCreate = onDocumentCreated("events/{eventId}", async (ev
       return;
     }
 
-    try {
-
+    try { 
+    const taskName = `projects/${PROJECT}/locations/${LOCATION}/queues/${QUEUE}/tasks/start-event-${eventId}`;
       if (eventData.startTime) {
         const parent = tasksClient.queuePath(PROJECT, LOCATION, QUEUE);
         const task = {
+          name:taskName,
           httpRequest: {
+            
             httpMethod: 'POST',
             url: WORKER_URL,
             body: Buffer.from(JSON.stringify({ eventId })).toString('base64'),
