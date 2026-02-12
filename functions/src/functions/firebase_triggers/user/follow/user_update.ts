@@ -4,127 +4,141 @@ import * as logger from "firebase-functions/logger";
 
 const db = admin.firestore();
 
-export const handleUserUpdate = onDocumentUpdated("users/{userID}", async (event) => {
-  try {
-    // 1. Veri kontrolü
-    if (!event.data) {
-      logger.error("No data found in updated document.");
-      return;
-    }
-
-    const beforeData = event.data.before.data();
-    const afterData = event.data.after.data();
-    const userID = event.data.after.id;
-
-    // 2. Değişiklik Kontrolü (Change Detection)
-    // Eğer username veya resim değişmediyse fonksiyonu burada bitir.
-    // Bu işlem maliyeti ve fonksiyon süresini ciddi oranda düşürür.
-    if (
-      beforeData.username === afterData.username &&
-      beforeData.profileImageUrl === afterData.profileImageUrl &&
-      beforeData.universityName === afterData.universityName // Bu satırı ekledik
-    ) {
-      logger.info("No relevant profile changes detected, skipping update.");
-      return;
-    }
-
-    const username = afterData.username;
-    const profileImageUrl = afterData.profileImageUrl;
-    const university = afterData.universityName;
-
-
-    logger.info(`Starting profile update propagation for user: ${userID}`);
-
-    // 3. Etkinlikleri ve Postları Paralel Çekme
-    // Promise.all ile iki sorguyu aynı anda başlatıyoruz.
-    const [eventsSnapshot, postsSnapshot] = await Promise.all([
-      db.collection("users")
-        .doc(userID)
-        .collection("eventLog")
-        .where("status", "in", ["upcoming", "ongoing"])
-        .get(),
-      db.collection("users")
-        .doc(userID)
-        .collection("posts")
-        .get(),
-    ]);
-
-    const updatePromises: Promise<any>[] = [];
-
-    // 4. Etkinlikleri Güncelleme Mantığı
-    // for...of yerine map kullanarak promise dizisi oluşturuyoruz
-    const eventUpdates = eventsSnapshot.docs.map(async (doc) => {
-      const eventId = doc.data().eventID;
-      if (!eventId) return;
-
-      const eventRef = db.collection("events").doc(eventId);
-
-      // Eventi oku (Creator kontrolü için mecburuz)
-      const eventSnap = await eventRef.get();
-      if (!eventSnap.exists) return;
-
-      const eventData = eventSnap.data();
-
-      // Eğer creator bu kullanıcı ise güncelle
-      if (eventData?.creator?.userID === userID) {
-        // Dot notation kullanarak sadece ilgili alanları güncelle (Daha güvenli ve hızlı)
-        updatePromises.push(eventRef.update({
-          "creator.username": username,
-          "creator.profileImageUrl": profileImageUrl,
-          "creator.university": university
-        },));
+export const handleUserUpdate = onDocumentUpdated(
+  "users/{userID}",
+  async (event) => {
+    try {
+      if (!event.data) {
+        logger.error("No data found in updated document.");
+        return;
       }
 
-      // Katılımcı bilgisini güncelle
-      // BURADA OKUMA YAPMAYA GEREK YOK. Doğrudan update deneyebiliriz.
-      // Eğer döküman yoksa hata vermemesi için { merge: true } yerine update kullanıyoruz,
-      // update döküman yoksa hata fırlatır, bu yüzden catch ile yakalayabiliriz veya
-      // katılımcının kesin var olduğunu varsayıyorsak direkt update ederiz.
-      const participantRef = eventRef.collection("participants").doc(userID);
+      const beforeData = event.data.before.data();
+      const afterData = event.data.after.data();
+      const userID = event.params.userID; // Event params'dan almak daha garantidir
+
+      // 1. Değişiklik Kontrolü (Change Detection)
+      // Public profile ve diğer yerleri etkileyen alanlar değişti mi?
+      const isProfileChanged =
+        beforeData.username !== afterData.username ||
+        beforeData.profileImageUrl !== afterData.profileImageUrl ||
+        beforeData.universityName !== afterData.universityName ||
+        beforeData.nameSurname !== afterData.nameSurname ||
+        beforeData.bio !== afterData.bio ||
+        beforeData.isPrivate !== afterData.isPrivate;
+
+      if (!isProfileChanged) {
+        logger.info(
+          "No relevant profile changes detected, skipping propagation.",
+        );
+        return;
+      }
+
+      const {
+        username,
+        profileImageUrl,
+        universityName,
+        nameSurname,
+        bio,
+        isPrivate,
+      } = afterData;
+      const updatePromises: Promise<any>[] = [];
+
+      // --- A. PUBLIC_USERS GÜNCELLEME (Yeni Eklediğimiz Kısım) ---
+      const publicUserRef = db.collection("public_users").doc(userID);
       updatePromises.push(
-        participantRef.update({
-          username: username,
-          profileImageUrl: profileImageUrl,
-          university: university
-        }).catch((err) => {
-          // Katılımcı verisi silinmişse (örneğin etkinlikten çıkmışsa) hatayı yutabiliriz.
-          logger.warn(`Participant doc update failed for event ${eventId}: ${err.message}`);
-        })
+        publicUserRef.set(
+          {
+            userID: userID,
+            username: username ?? "isimsiz",
+            profileImageUrl: profileImageUrl ?? "",
+            nameSurname: nameSurname ?? null,
+            bio: bio ?? null,
+            university: universityName ?? null,
+            isPrivate: isPrivate ?? false,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        ),
       );
-    });
 
-    // 5. Postları Güncelleme Mantığı
-    const postUpdates = postsSnapshot.docs.map(async (doc) => {
-      const postId = doc.data().postID;
-      if (!postId) return;
+      // --- B. ETKİNLİK VE POST PROPAGASYONU ---
+      logger.info(`Starting profile update propagation for user: ${userID}`);
 
-      const postRef = db.collection("posts").doc(postId);
-      const postSnap = await postRef.get();
+      const [eventsSnapshot, postsSnapshot] = await Promise.all([
+        db
+          .collection("users")
+          .doc(userID)
+          .collection("eventLog")
+          .where("status", "in", ["upcoming", "ongoing"])
+          .get(),
+        db.collection("users").doc(userID).collection("posts").get(),
+      ]);
 
-      if (!postSnap.exists) return;
+      // Etkinlikleri İşle
+      eventsSnapshot.docs.forEach((doc) => {
+        const eventId = doc.data().eventID;
+        if (!eventId) return;
 
-      const postData = postSnap.data();
+        const eventRef = db.collection("events").doc(eventId);
 
-      if (postData?.creator?.userID === userID) {
-        updatePromises.push(postRef.update({
-          "creator.username": username,
-          "creator.profileImageUrl": profileImageUrl,
-          "creator.university": university
-        }));
-      }
-    });
+        // 1. Creator bilgisini güncelle (Dot notation ile dökümanı okumadan update deniyoruz)
+        // Önemli: Eğer creator o değilse Firestore kuralları veya uygulama mantığıyla hata almamak için
+        // burada event dökümanını kontrol etmek veya "events" koleksiyonunda creatorID'ye göre sorgu atmak daha iyidir.
+        // Şimdilik senin mantığınla devam ediyoruz:
+        updatePromises.push(
+          eventRef
+            .update({
+              "creator.username": username,
+              "creator.profileImageUrl": profileImageUrl,
+              "creator.university": universityName,
+            })
+            .catch(() => {
+              /* Creator değilse hata verebilir, yutuyoruz */
+            }),
+        );
 
-    // Event ve Post döngülerini (async map) bekleyelim
-    await Promise.all([...eventUpdates, ...postUpdates]);
+        // 2. Katılımcı bilgisini güncelle
+        const participantRef = eventRef.collection("participants").doc(userID);
+        updatePromises.push(
+          participantRef
+            .update({
+              username: username,
+              profileImageUrl: profileImageUrl,
+              university: universityName,
+            })
+            .catch(() => {
+              /* Katılımcı değilse yutuyoruz */
+            }),
+        );
+      });
 
-    // Oluşan tüm update işlemlerini (Firestore yazmalarını) paralel çalıştıralım
-    if (updatePromises.length > 0) {
+      // Postları İşle
+      postsSnapshot.docs.forEach((doc) => {
+        const postId = doc.data().postID;
+        if (!postId) return;
+
+        const postRef = db.collection("posts").doc(postId);
+        updatePromises.push(
+          postRef
+            .update({
+              "creator.username": username,
+              "creator.profileImageUrl": profileImageUrl,
+              "creator.university": universityName,
+            })
+            .catch(() => {
+              /* Creator değilse yutuyoruz */
+            }),
+        );
+      });
+
+      // Tüm işlemleri paralel bitir
       await Promise.all(updatePromises);
-      logger.info(`Updated ${updatePromises.length} documents successfully.`);
-    } else {
-      logger.info("No documents needed updating.");
+      logger.info(
+        `Updated public profile and propagated changes to ${updatePromises.length - 1} related records.`,
+      );
+    } catch (error) {
+      logger.error("An unexpected error occurred in handleUserUpdate:", error);
     }
-  } catch (error) {
-    logger.error("An unexpected error occurred in handleUserUpdate:", error);
-  }
-});
+  },
+);

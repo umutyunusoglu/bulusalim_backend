@@ -1,10 +1,13 @@
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
-import { NotificationMetadata, notifyUsers } from "../../notifications/notify_users";
+import {
+  NotificationMetadata,
+  notifyUsers,
+} from "../../notifications/notify_users";
 
 const db = admin.firestore();
-const { CloudTasksClient } = require('@google-cloud/tasks');
+const { CloudTasksClient } = require("@google-cloud/tasks");
 const tasksClient = new CloudTasksClient();
 
 // Konfigürasyonlar
@@ -14,103 +17,117 @@ const LOCATION = config.firebase.location;
 const QUEUE = config.cloudTasks.queueName;
 const WORKER_URL = `https://${LOCATION}-${PROJECT}.cloudfunctions.net/${config.cloudTasks.workerFunctionName}`;
 
-export const handleEventUpdate = onDocumentUpdated("events/{eventId}", async (event) => {
-  try {
-    if (!event.data) return;
+export const handleEventUpdate = onDocumentUpdated(
+  "events/{eventId}",
+  async (event) => {
+    try {
+      if (!event.data) return;
 
-    const beforeData = event.data.before.data();
-    const afterData = event.data.after.data();
-    const eventId = event.params.eventId;
-    const eventRef = event.data.after.ref;
+      const beforeData = event.data.before.data();
+      const afterData = event.data.after.data();
+      const eventId = event.params.eventId;
+      const eventRef = event.data.after.ref;
 
-    if (!afterData || !beforeData) return;
+      if (!afterData || !beforeData) return;
 
-    // 1. Değişiklik Kontrolleri
-    const isLocationChanged = !beforeData.location?.isEqual(afterData.location);
-    const isStartTimeChanged = !beforeData.startTime?.isEqual(afterData.startTime);
-    const isForceStarted = beforeData.status !== "ongoing" && afterData.status === "ongoing";
+      const isLocationChanged = !beforeData.location?.isEqual(
+        afterData.location,
+      );
+      const isStartTimeChanged = !beforeData.startTime?.isEqual(
+        afterData.startTime,
+      );
+      const isForceStarted =
+        beforeData.status !== "ongoing" && afterData.status === "ongoing";
 
-    const eventName = afterData.name || "Buluşma";
-    const oldTaskName = beforeData.eventStartTaskName;
+      // 2. Task Management
+      if (isStartTimeChanged || isForceStarted) {
+        if (beforeData.eventStartTaskName) {
+          try {
+            await tasksClient.deleteTask({
+              name: beforeData.eventStartTaskName,
+            });
+          } catch (e: any) {
+            if (e.code !== 5) logger.error("Task delete error", e);
+          }
+        }
 
-    // 2. Task Yönetimi (Silme ve Yeni Oluşturma)
-    if (isStartTimeChanged || isForceStarted) {
+        if (
+          isStartTimeChanged &&
+          !["ongoing", "completed"].includes(afterData.status)
+        ) {
+          const parent = tasksClient.queuePath(PROJECT, LOCATION, QUEUE);
+          const task = {
+            httpRequest: {
+              httpMethod: "POST",
+              url: WORKER_URL,
+              body: Buffer.from(JSON.stringify({ eventId })).toString("base64"),
+              headers: { "Content-Type": "application/json" },
+            },
+            scheduleTime: { seconds: afterData.startTime.seconds },
+          };
 
-      // ESKİ TASK'I SİL
-      if (oldTaskName) {
-        try {
-          logger.info(`Eski task siliniyor: ${oldTaskName}`);
-          await tasksClient.deleteTask({ name: oldTaskName });
-          logger.info("Eski task başarıyla silindi.");
-        } catch (error: any) {
-          // Hata kodu 5: Task zaten çalışmış veya manuel silinmiş demektir
-          if (error.code === 5) {
-            logger.info("Task bulunamadı, muhtemelen zaten çalıştı.");
-          } else {
-            logger.error("Task silme sırasında kritik hata:", error);
+          const [response] = await tasksClient.createTask({ parent, task });
+
+          // Safety: Only update if different to prevent redundant triggers
+          if (afterData.eventStartTaskName !== response.name) {
+            await eventRef.update({ eventStartTaskName: response.name });
           }
         }
       }
 
-      // YENİ TASK OLUŞTUR (Sadece zaman değiştiyse ve etkinlik hala beklemedeyse)
-      if (isStartTimeChanged && afterData.status !== "ongoing" && afterData.status !== "completed") {
-        const parent = tasksClient.queuePath(PROJECT, LOCATION, QUEUE);
-        const task = {
-          httpRequest: {
-            httpMethod: 'POST',
-            url: WORKER_URL,
-            body: Buffer.from(JSON.stringify({ eventId })).toString('base64'),
-            headers: { 'Content-Type': 'application/json' },
-          },
-          scheduleTime: { seconds: afterData.startTime.seconds },
-        };
+      // 3. Notifications
+      const participantsSnapshot = await db
+        .collection("events")
+        .doc(eventId)
+        .collection("participants")
+        .get();
+      const participantIDs = participantsSnapshot.docs.map((doc) => doc.id);
 
-        const [response] = await tasksClient.createTask({ parent, task });
-        logger.info(`Yeni task oluşturuldu: ${response.name}`);
+      if (participantIDs.length > 0) {
+        const metadata: NotificationMetadata = { eventId };
+        const promises = [];
 
-        // Firestore'u güncelle (Bu işlem fonksiyonu tekrar tetikler, 
-        // ancak isStartTimeChanged artık false olacağı için döngüye girmez)
-        await eventRef.update({ eventStartTaskName: response.name });
+        if (isLocationChanged)
+          promises.push(
+            notifyUsers(
+              participantIDs,
+              {
+                title: "📍 Konum Değişti",
+                body: "Yeni konumu gör!",
+                type: "updateLocation",
+              },
+              metadata,
+            ),
+          );
+        if (isStartTimeChanged)
+          promises.push(
+            notifyUsers(
+              participantIDs,
+              {
+                title: "⏰ Saat Değişti",
+                body: "Yeni saati gör!",
+                type: "updateTime",
+              },
+              metadata,
+            ),
+          );
+        if (isForceStarted)
+          promises.push(
+            notifyUsers(
+              participantIDs,
+              {
+                title: "📢 Etkinlik Başladı",
+                body: "Hadi gel!",
+                type: "earlyStart",
+              },
+              metadata,
+            ),
+          );
+
+        await Promise.all(promises);
       }
+    } catch (error) {
+      logger.error("Event update process failed", error);
     }
-
-    // 3. Bildirim Gönderimi
-    const participantsSnapshot = await db.collection("events").doc(eventId).collection("participants").get();
-    const participantIDs = participantsSnapshot.docs.map((doc) => doc.id);
-
-    if (participantIDs.length > 0) {
-      const notificationMetadata: NotificationMetadata = { eventId };
-      const promises: Promise<void>[] = [];
-
-      if (isLocationChanged) {
-        promises.push(notifyUsers(participantIDs, {
-          title: `📍 ${eventName} Konumu Değişti!`,
-          body: "Yeni konumu görüntülemek için tıkla!",
-          type: "updateLocation",
-        }, notificationMetadata));
-      }
-
-      if (isStartTimeChanged) {
-        promises.push(notifyUsers(participantIDs, {
-          title: `⏰ ${eventName} Saati Değişti!`,
-          body: "Yeni saati görüntülemek için tıkla!",
-          type: "updateTime",
-        }, notificationMetadata));
-      }
-
-      if (isForceStarted) {
-        promises.push(notifyUsers(participantIDs, {
-          title: `📢 ${eventName} Buluşması Başlatıldı!`,
-          body: "Buluşmayı görüntülemek için tıkla!",
-          type: "earlyStart",
-        }, notificationMetadata));
-      }
-
-      await Promise.all(promises);
-    }
-
-    logger.info(`Event update processed for: ${eventId}`);
-  } catch (error) {
-    logger.error("handleEventUpdate içinde beklenmedik hata:", error);
-  }
-});
+  },
+);

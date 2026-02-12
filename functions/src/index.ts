@@ -1,8 +1,5 @@
-
-
 import * as admin from "firebase-admin";
 import { setGlobalOptions } from "firebase-functions/v2";
-
 
 const serviceAccount = require("../service_account.json");
 admin.initializeApp({
@@ -14,14 +11,26 @@ setGlobalOptions({ maxInstances: 10, timeoutSeconds: 300, memory: "1GiB" });
 import { reportUser } from "./functions/reporting/report";
 import { sendVerificationEmail } from "./functions/auth/send_verification_email";
 import { verifyEmailCode } from "./functions/auth/verify_email_code";
-import { handleEventCreate, handleEventUpdate, handleFolloweeDelete, handleFollowerCreate, handleFollowRequestCreate, handleParticipantCreate, handlePostCreate, handlePostDelete, handlePostUpdate, handleUserUpdate } from "./functions/firebase_triggers";
+import {
+  handleEventCreate,
+  handleEventUpdate,
+  handleFolloweeDelete,
+  handleFollowerCreate,
+  handleFollowRequestCreate,
+  handleParticipantCreate,
+  handlePostCreate,
+  handlePostDelete,
+  handlePostUpdate,
+  handleUserCreate,
+  handleUserUpdate,
+} from "./functions/firebase_triggers";
 import { deleteAccount } from "./functions/auth/delete_account";
 import { startEventLogic } from "./functions/event_lifecycle/start_event_logic";
 import { stopEventLogic } from "./functions/event_lifecycle/stop_event_logic";
 import { sendEventInvitation } from "./functions/send_event_invitation";
 
-
 export {
+  handleUserCreate,
   handleUserUpdate,
   deleteAccount,
   handleEventCreate,
@@ -38,5 +47,5 @@ export {
   verifyEmailCode,
   startEventLogic,
   stopEventLogic,
-  sendEventInvitation
+  sendEventInvitation,
 };

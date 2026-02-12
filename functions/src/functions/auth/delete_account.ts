@@ -38,8 +38,8 @@ export const deleteAccount = onCall(async (request) => {
 
     ];
 
-    const cleanupPromises = subcollectionsToClean.map(async (collectionName) => {
-      // "userID" alanı "benim ID'm" olan kayıtları bul
+   const cleanupPromises = subcollectionsToClean.map(async (collectionName) => {
+      console.log(`${collectionName} temizliği başlıyor...`); // LOG EKLE
       const snapshot = await db.collectionGroup(collectionName)
         .where("userID", "==", myUserID)
         .get();
@@ -133,6 +133,7 @@ export const deleteAccount = onCall(async (request) => {
     // BÖLÜM 5: KENDİ PROFİLİNİ SİLME
     // =================================================================================
     // users/{myID} ve altındaki tüm subcollection'lar (Followers, Followee, notifications vb.) silinir.
+console.log("Kendi profilini silme aşamasına gelindi..."); // LOG EKLE
     const userRef = db.collection("users").doc(myUserID);
     await db.recursiveDelete(userRef);
 

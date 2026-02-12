@@ -8,8 +8,10 @@ import { handleFollowRequestCreate } from "./user/follow/follow_request_create";
 import { handleParticipantCreate } from "./event/participants/participant_create";
 import { handleUserUpdate } from "./user/follow/user_update";
 import { handlePostDelete } from "./post/post_delete";
+import { handleUserCreate } from "./user/follow/user_create";
 
 export {
+  handleUserCreate,
   handleUserUpdate,
   handleEventCreate,
   handleEventUpdate,
@@ -20,5 +22,4 @@ export {
   handleFolloweeDelete,
   handleFollowRequestCreate,
   handleParticipantCreate,
-
 };
