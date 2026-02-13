@@ -4,16 +4,16 @@ import { AppNotificationPayload } from "../notifications/app_notification_payloa
 import NotificationManager from "../notifications/notification_manager";
 
 export interface NotificationMetadata {
-    eventId?: string;
-    userId?: string; 
-    postId?: string;
-    avatarUrl?: string;
+  eventId?: string;
+  userId?: string;
+  postId?: string;
+  profileImageUrl?: string;
 }
 
 export async function notifyUsers(
   targetIds: string[],
   payload: AppNotificationPayload,
-  metadata: NotificationMetadata
+  metadata: NotificationMetadata,
 ) {
   if (targetIds.length === 0) return;
 
@@ -29,17 +29,21 @@ export async function notifyUsers(
     const batch = db.batch();
 
     chunk.forEach((targetId) => {
-      const notifRef = db.collection("users").doc(targetId).collection("notifications").doc();
+      const notifRef = db
+        .collection("users")
+        .doc(targetId)
+        .collection("notifications")
+        .doc();
       batch.set(notifRef, {
         type: payload.type,
         title: payload.title,
         message: payload.body,
-        avatarUrl: metadata.avatarUrl || null,
+        profileImageUrl: metadata.profileImageUrl || null,
         createdAt: FieldValue.serverTimestamp(),
         eventId: metadata.eventId || null,
         triggeringUserId: metadata.userId || null,
         postId: metadata.postId || null,
-        isRead: false, 
+        isRead: false,
       });
     });
 
