@@ -39,6 +39,8 @@ export const handleEventUpdate = onDocumentUpdated(
       const isForceStarted =
         beforeData.status !== "ongoing" && afterData.status === "ongoing";
 
+      const creatorProfileImageUrl = afterData.creator.profileImageUrl || null;
+
       // 2. Task Management
       if (isStartTimeChanged || isForceStarted) {
         if (beforeData.eventStartTaskName) {
@@ -81,24 +83,13 @@ export const handleEventUpdate = onDocumentUpdated(
         .doc(eventId)
         .collection("participants")
         .get();
+
       const participantIDs = participantsSnapshot.docs.map((doc) => doc.id);
 
       if (participantIDs.length > 0) {
         const metadata: NotificationMetadata = { eventId };
         const promises = [];
 
-        if (isLocationChanged)
-          promises.push(
-            notifyUsers(
-              participantIDs,
-              {
-                title: "📍 Konum Değişti",
-                body: "Yeni konumu gör!",
-                type: "updateLocation",
-              },
-              metadata,
-            ),
-          );
         if (isStartTimeChanged)
           promises.push(
             notifyUsers(
@@ -107,6 +98,9 @@ export const handleEventUpdate = onDocumentUpdated(
                 title: "⏰ Saat Değişti",
                 body: "Yeni saati gör!",
                 type: "updateTime",
+                profileImageUrl: creatorProfileImageUrl,
+                actionText: "goToEvent",
+                eventId: eventId,
               },
               metadata,
             ),
@@ -119,6 +113,9 @@ export const handleEventUpdate = onDocumentUpdated(
                 title: "📢 Etkinlik Başladı",
                 body: "Hadi gel!",
                 type: "earlyStart",
+                profileImageUrl: creatorProfileImageUrl,
+                actionText: "goToEvent",
+                eventId: eventId,
               },
               metadata,
             ),

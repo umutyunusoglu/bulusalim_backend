@@ -9,10 +9,14 @@ import { handleParticipantCreate } from "./event/participants/participant_create
 import { handleUserUpdate } from "./user/follow/user_update";
 import { handlePostDelete } from "./post/post_delete";
 import { handleUserCreate } from "./user/follow/user_create";
+import { handleEventDelete } from "./event/event_delete";
+import { handleEventSensitiveUpdate } from "./event/event_sensitive_update";
 
 export {
   handleUserCreate,
   handleUserUpdate,
+  handleEventDelete,
+  handleEventSensitiveUpdate,
   handleEventCreate,
   handleEventUpdate,
   handlePostCreate,

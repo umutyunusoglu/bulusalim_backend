@@ -13,6 +13,8 @@ import { sendVerificationEmail } from "./functions/auth/send_verification_email"
 import { verifyEmailCode } from "./functions/auth/verify_email_code";
 import {
   handleEventCreate,
+  handleEventDelete,
+  handleEventSensitiveUpdate,
   handleEventUpdate,
   handleFolloweeDelete,
   handleFollowerCreate,
@@ -35,6 +37,8 @@ export {
   deleteAccount,
   handleEventCreate,
   handleEventUpdate,
+  handleEventSensitiveUpdate,
+  handleEventDelete,
   handlePostCreate,
   handlePostUpdate,
   handlePostDelete,
