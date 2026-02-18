@@ -83,6 +83,14 @@ export const handleFollowerCreate = onDocumentCreated(
         updatedAt: FieldValue.serverTimestamp(),
       });
 
+      batch.delete(
+        db
+          .collection("users")
+          .doc(followerID)
+          .collection("followRequests")
+          .doc(currentUser),
+      );
+
       await batch.commit();
 
       // 3. Push Bildirimi Gönder
