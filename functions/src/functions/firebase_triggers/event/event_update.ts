@@ -40,7 +40,7 @@ export const handleEventUpdate = onDocumentUpdated(
         beforeData.status !== "ongoing" && afterData.status === "ongoing";
 
       const creatorProfileImageUrl = afterData.creator.profileImageUrl || null;
-
+      const eventName = afterData.name || "Buluşmanın"; // Fallback title
       // 2. Task Management
       if (isStartTimeChanged || isForceStarted) {
         if (beforeData.eventStartTaskName) {
@@ -92,33 +92,27 @@ export const handleEventUpdate = onDocumentUpdated(
 
         if (isStartTimeChanged)
           promises.push(
-            notifyUsers(
-              participantIDs,
-              {
-                title: "⏰ Saat Değişti",
-                body: "Yeni saati gör!",
-                type: "updateTime",
-                profileImageUrl: creatorProfileImageUrl,
-                actionText: "goToEvent",
-                eventId: eventId,
-              },
-              metadata,
-            ),
+            notifyUsers(participantIDs, {
+              title: eventName,
+              body: "Buluşmasının saati değişti!",
+              type: "updateTime",
+              profileImageUrl: creatorProfileImageUrl,
+              actionText: "Yeni Saati Gör...",
+              eventId: eventId,
+              userId: afterData.creator.userID || null,
+            }),
           );
         if (isForceStarted)
           promises.push(
-            notifyUsers(
-              participantIDs,
-              {
-                title: "📢 Etkinlik Başladı",
-                body: "Hadi gel!",
-                type: "earlyStart",
-                profileImageUrl: creatorProfileImageUrl,
-                actionText: "goToEvent",
-                eventId: eventId,
-              },
-              metadata,
-            ),
+            notifyUsers(participantIDs, {
+              title: eventName,
+              body: "Buluşması erken başladı!",
+              type: "earlyStart",
+              profileImageUrl: creatorProfileImageUrl,
+              actionText: "Buluşmayı Gör...",
+              eventId: eventId,
+              userId: afterData.creator.userID || null,
+            }),
           );
 
         await Promise.all(promises);

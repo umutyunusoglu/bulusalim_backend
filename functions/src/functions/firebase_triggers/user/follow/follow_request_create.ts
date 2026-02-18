@@ -82,18 +82,14 @@ export const handleFollowRequestCreate = onDocumentCreated(
       // yukarıda manuel hallettik, burada sadece Push göndermek için helper'ı çağırabiliriz.
       // Veya helper'ı sadece push için kullanacak şekilde sadeleştirebilirsin.
 
-      await notifyUsers(
-        [targetId],
-        {
-          title: "Yeni bir takip isteği!",
-          body: `${username} seni takip etmek istiyor.`,
-          type: "followRequest",
-        },
-        {
-          userId: userId,
-          profileImageUrl: profileImageUrl,
-        },
-      );
+      await notifyUsers([targetId], {
+        title: "Yeni bir takip isteği!",
+        body: `${username} seni takip etmek istiyor.`,
+        type: "followRequest",
+        actionText: "Takip İsteklerini Gör",
+        profileImageUrl: profileImageUrl,
+        userId: userId,
+      });
 
       logger.info(`Takip isteği işlendi: ${userId} -> ${targetId}`);
     } catch (error) {

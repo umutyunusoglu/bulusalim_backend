@@ -13,24 +13,31 @@ const db = admin.firestore();
 export const handleEventSensitiveUpdate = onDocumentUpdated(
   "events/{eventId}/sensitive/meta",
   async (event) => {
-    // 1. Veri Güvenliği Kontrolü
     if (!event.data) return;
 
     const beforeData = event.data.before.data();
     const afterData = event.data.after.data();
     const eventId = event.params.eventId;
 
-    const creatorProfileImageUrl = afterData?.creator?.profileImageUrl || null;
-    // Veri eksikse (örn: silinmişse) işlem yapma
     if (!beforeData || !afterData) return;
 
     try {
       const isLocationChanged = !beforeData.location?.isEqual(
         afterData.location,
       );
-
       if (!isLocationChanged) return;
 
+      // --- 1. Fetch Creator Data from the Parent Event Document ---
+      const eventDoc = await db.collection("events").doc(eventId).get();
+      const eventData = eventDoc.data();
+
+      const eventName = eventData?.name || "Buluşmanın"; // Fallback title
+      // Extract creator info (adjust field names based on your schema)
+      const creatorData = eventData?.creator;
+      const creatorProfileImageUrl = creatorData?.profileImageUrl || null;
+      const creatorUserId = creatorData?.userID || null;
+
+      // --- 2. Get Participants ---
       const participantsSnapshot = await db
         .collection("events")
         .doc(eventId)
@@ -42,23 +49,17 @@ export const handleEventSensitiveUpdate = onDocumentUpdated(
 
       const participantIDs = participantsSnapshot.docs.map((doc) => doc.id);
 
-      // 4. Bildirim Gönderme
-      const metadata: NotificationMetadata = { eventId };
-
-      await notifyUsers(
-        participantIDs,
-        {
-          title: "📍 Konum Değişti",
-          body: "Yeni konumu gör!",
-          type: "updateLocation",
-          profileImageUrl: creatorProfileImageUrl,
-          actionText: "goToEvent",
-          eventId: eventId,
-        },
-        metadata,
-      );
+      // --- 3. Send Notification ---
+      await notifyUsers(participantIDs, {
+        title: eventName,
+        body: "Buluşmasının konumu değişti!",
+        type: "updateLocation",
+        profileImageUrl: creatorProfileImageUrl, // Dynamic from parent doc
+        actionText: "Yeni Konumu Gör...",
+        eventId: eventId,
+        userId: creatorUserId, // Dynamic from parent doc
+      });
     } catch (error) {
-      // Hata loguna eventId eklemek debug işlemini kolaylaştırır
       logger.error(`Event update failed for ID: ${eventId}`, error);
     }
   },

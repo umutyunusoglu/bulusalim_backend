@@ -59,15 +59,13 @@ export const sendEventInvitation = onCall(async (request) => {
       type: "invite",
       actionText: "Buluşma kartını görüntüle.",
       profileImageUrl: toprofileImageUrl,
+      eventId: eventID,
+      userId: fromID,
     };
 
     // 6. Bildirim Gönderimi ve Hata Yönetimi
     try {
-      await notifyUsers([toID], payload, {
-        eventId: eventID,
-        userId: fromID,
-        profileImageUrl: toprofileImageUrl || "",
-      });
+      await notifyUsers([toID], payload);
     } catch (notificationError) {
       console.error("Bildirim gönderilirken hata oluştu:", notificationError);
       throw new HttpsError("internal", "Bildirim gönderilemedi.");

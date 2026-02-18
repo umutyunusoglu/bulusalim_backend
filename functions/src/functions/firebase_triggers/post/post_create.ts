@@ -30,20 +30,16 @@ export const handlePostCreate = onDocumentCreated(
 
       // 2. Bildirim Gönder (Yeni notifyUsers mantığı)
       if (targetIDs.length > 0) {
-        await notifyUsers(
-          targetIDs,
-          {
-            title: "Yeni bir fotoğraf paylaşıldı!",
-            body: `${creatorUsername} senin de olduğun grupta bir paylaşım yaptı.`,
-            type: "participants",
-          },
-          {
-            eventId: eventID,
-            userId: postOwnerID,
-            postId: postId,
-            profileImageUrl: creatorImage,
-          },
-        );
+        await notifyUsers(targetIDs, {
+          title: "Yeni bir fotoğraf paylaşıldı!",
+          body: `${creatorUsername} senin de olduğun grupta bir paylaşım yaptı.`,
+          type: "participants",
+          actionText: "Gönderiyi Gör",
+          profileImageUrl: creatorImage,
+          userId: postOwnerID,
+          eventId: eventID,
+          postId: postId,
+        });
       }
 
       // 3. Feed Koleksiyonuna Yaz

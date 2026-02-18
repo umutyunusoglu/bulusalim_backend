@@ -13,7 +13,6 @@ export interface NotificationMetadata {
 export async function notifyUsers(
   targetIds: string[],
   payload: AppNotificationPayload,
-  metadata: NotificationMetadata,
 ) {
   if (targetIds.length === 0) return;
 
@@ -34,15 +33,17 @@ export async function notifyUsers(
         .doc(targetId)
         .collection("notifications")
         .doc();
+
       batch.set(notifRef, {
         type: payload.type,
         title: payload.title,
         message: payload.body,
-        profileImageUrl: metadata.profileImageUrl || null,
+        actionText: payload.actionText || null,
+        profileImageUrl: payload.profileImageUrl || null,
         createdAt: FieldValue.serverTimestamp(),
-        eventId: metadata.eventId || null,
-        triggeringUserId: metadata.userId || null,
-        postId: metadata.postId || null,
+        eventID: payload.eventId || null,
+        userID: payload.userId || null,
+        postID: payload.postId || null,
         isRead: false,
       });
     });

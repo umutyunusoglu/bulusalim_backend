@@ -87,18 +87,14 @@ export const handleFollowerCreate = onDocumentCreated(
 
       // 3. Push Bildirimi Gönder
       // Daha önce yazdığımız notifyUsers helper'ını sadece PUSH için veya genel yapı için kullanabilirsin
-      await notifyUsers(
-        [currentUser],
-        {
-          title: "Yeni Bir Takipçin Var!",
-          body: `${followerUsername} seni takip etmeye başladı!`,
-          type: "newFollower",
-        },
-        {
-          userId: followerID,
-          profileImageUrl: followerProfileImageUrl,
-        },
-      );
+      await notifyUsers([currentUser], {
+        title: "Yeni Bir Takipçin Var!",
+        body: `${followerUsername} seni takip etmeye başladı!`,
+        type: "newFollower",
+        actionText: "Takipçileri Gör",
+        profileImageUrl: followerProfileImageUrl,
+        userId: followerID,
+      });
 
       logger.info(
         `Yeni takipçi bildirimi başarıyla işlendi: ${followerID} -> ${currentUser}`,
