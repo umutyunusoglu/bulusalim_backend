@@ -8,14 +8,6 @@ import { FieldValue } from "firebase-admin/firestore";
 
 const db = admin.firestore();
 
-import { onDocumentDeleted } from "firebase-functions/v2/firestore";
-import * as admin from "firebase-admin";
-import * as logger from "firebase-functions/logger";
-import { FieldValue } from "firebase-admin/firestore";
-
-if (admin.apps.length === 0) admin.initializeApp();
-const db = admin.firestore();
-
 // Yardımcı fonksiyon: Bir koleksiyondaki tüm dökümanları siler
 async function deleteCollection(
   ref: admin.firestore.CollectionReference,
