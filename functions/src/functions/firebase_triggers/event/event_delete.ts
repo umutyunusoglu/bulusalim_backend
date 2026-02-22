@@ -8,36 +8,64 @@ import { FieldValue } from "firebase-admin/firestore";
 
 const db = admin.firestore();
 
+import { onDocumentDeleted } from "firebase-functions/v2/firestore";
+import * as admin from "firebase-admin";
+import * as logger from "firebase-functions/logger";
+import { FieldValue } from "firebase-admin/firestore";
+
+if (admin.apps.length === 0) admin.initializeApp();
+const db = admin.firestore();
+
+// Yardımcı fonksiyon: Bir koleksiyondaki tüm dökümanları siler
+async function deleteCollection(
+  ref: admin.firestore.CollectionReference,
+  batchSize: number = 450,
+) {
+  const query = ref.limit(batchSize);
+  const snapshot = await query.get();
+
+  if (snapshot.empty) return;
+
+  const batch = db.batch();
+  snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+  await batch.commit();
+
+  // Eğer hala veri varsa rekürsif olarak devam et
+  if (snapshot.size >= batchSize) {
+    await deleteCollection(ref, batchSize);
+  }
+}
+
 export const handleEventDelete = onDocumentDeleted(
-  "events/{eventId}",
+  {
+    document: "events/{eventId}",
+    memory: "512MiB",
+    timeoutSeconds: 540, // 9 dakika - Çok fazla mesaj/katılımcı varsa süre lazım
+  },
   async (event) => {
+    const eventId = event.params.eventId;
     const snapshot = event.data;
     if (!snapshot) return;
 
-    const eventId = event.params.eventId;
     const eventRef = snapshot.ref;
 
     try {
-      // 1. Fetch participants BEFORE starting the deletion process
+      // 1. ÖZEL DURUM: Participants (Hem log güncellemesi hem silme)
       const participantsSnapshot = await eventRef
         .collection("participants")
         .get();
-
       if (!participantsSnapshot.empty) {
-        const BATCH_SIZE = 400;
         let batch = db.batch();
-        let opCount = 0;
-        const batchPromises: Promise<any>[] = [];
+        let count = 0;
 
         for (const doc of participantsSnapshot.docs) {
-          const logRef = db
-            .collection("users")
-            .doc(doc.id)
-            .collection("eventLog")
-            .doc(eventId);
-
+          // Log güncelle
           batch.set(
-            logRef,
+            db
+              .collection("users")
+              .doc(doc.id)
+              .collection("eventLog")
+              .doc(eventId),
             {
               status: "completed",
               isActive: false,
@@ -46,30 +74,39 @@ export const handleEventDelete = onDocumentDeleted(
             { merge: true },
           );
 
-          opCount++;
+          // Katılımcıyı sil
+          batch.delete(doc.ref);
+          count += 2;
 
-          if (opCount >= BATCH_SIZE) {
-            batchPromises.push(batch.commit());
+          if (count >= 450) {
+            await batch.commit();
             batch = db.batch();
-            opCount = 0;
+            count = 0;
           }
         }
-
-        if (opCount > 0) {
-          batchPromises.push(batch.commit());
-        }
-
-        await Promise.all(batchPromises);
-        logger.info(
-          `Updated logs for ${participantsSnapshot.size} participants.`,
-        );
+        if (count > 0) await batch.commit();
       }
 
-      // 2. Final Recursive Cleanup
-      logger.info(`Starting recursive cleanup for event: ${eventId}`);
-      await db.recursiveDelete(eventRef);
+      // 2. DİĞER TÜM ALT KOLEKSİYONLARI SİL
+      // Bunlar sadece silinecek, ekstra işlem yok
+      const otherCollections = [
+        "messages",
+        "requestPool",
+        "rejectedUsers",
+        "sensitive",
+      ];
+
+      await Promise.all(
+        otherCollections.map((colName) =>
+          deleteCollection(eventRef.collection(colName)),
+        ),
+      );
+
+      logger.info(
+        `Event ${eventId} ve tüm bağlı veriler (5 alt koleksiyon) temizlendi.`,
+      );
     } catch (error) {
-      logger.error("Error handling event deletion:", error);
+      logger.error("Temizlik sırasında hata:", error);
     }
   },
 );
