@@ -11,8 +11,17 @@ export const handleFollowRequestCreate = onDocumentCreated(
   async (event) => {
     try {
       const { targetId, userId } = event.params;
+      if (!targetId || !userId) return;
 
-      // 1. Gerekli referanslar ve veriler
+      const batch = db.batch();
+
+      // 1. Veri Hazırlığı
+      const senderDoc = await db.collection("users").doc(userId).get();
+      const senderData = senderDoc.data();
+      const username = senderData?.username || "Bir kullanıcı";
+      const profileImageUrl = senderData?.profileImageUrl || "";
+
+      // 2. Referanslar
       const myNotificationRef = db
         .collection("users")
         .doc(userId)
@@ -24,64 +33,35 @@ export const handleFollowRequestCreate = onDocumentCreated(
         .collection("followNotifications")
         .doc(userId);
 
-      // Kullanıcı verisini push bildirimi için çekelim
-      const senderDoc = await db.collection("users").doc(userId).get();
-      const senderData = senderDoc.data();
-      const username = senderData?.username || "Bir kullanıcı";
-      const profileImageUrl = senderData?.profileImageUrl;
-
-      const batch = db.batch();
-
-      // İŞLEM 1: Gönderen Kişinin Tarafı (Senin tarafın)
-      // Eğer karşı taraf sana daha önce istek atmışsa, senin ekranında "İstek Gönderildi" (sent) görünmeli.
-      const myNotificationSnap = await myNotificationRef.get();
-      if (
-        myNotificationSnap.exists &&
-        myNotificationSnap.data()?.status === "pending"
-      ) {
+      // İŞLEM 1: İstek Atan Kişi (Senin tarafın)
+      // Burada sadece doküman varsa "sent" yapıyoruz.
+      const myNotifSnap = await myNotificationRef.get();
+      if (myNotifSnap.exists && myNotifSnap.data()?.status === "pending") {
         batch.update(myNotificationRef, {
           status: "sent",
           updatedAt: FieldValue.serverTimestamp(),
         });
       }
 
-      // İŞLEM 2: Karşı Taraf (Alıcının tarafı)
-      // Alıcıya "Takip İsteği" (pending) durumunu kaydediyoruz/güncelliyoruz.
+      // İŞLEM 2: İsteği Alan Kişi (Hedef taraf) - ASIL SORUN BURADA OLABİLİR
+      // set(..., { merge: true }) kullanarak doküman yoksa oluşmasını, varsa güncellenmesini sağlarız.
+      batch.set(
+        targetNotificationRef,
+        {
+          userID: userId,
+          username: username,
+          profileImageUrl: profileImageUrl,
+          status: "pending",
+          type: "followRequest",
+          updatedAt: FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(), // Merge true olduğu için mevcutsa ezilmez (eğer set içinde mantık kurarsanız)
+        },
+        { merge: true },
+      );
 
-      const targetDocSnap = await targetNotificationRef.get();
-
-      const targetFollowersRef = db
-        .collection("users")
-        .doc(targetId)
-        .collection("followers");
-      const targetFollowersSnapshot = await targetFollowersRef.get();
-
-      const followNotifData = {
-        userID: userId,
-        username: username,
-        profileImageUrl: profileImageUrl,
-        status: "pending",
-        type: "followRequest",
-        updatedAt: FieldValue.serverTimestamp(),
-      };
-
-      if (!targetDocSnap.exists) {
-        batch.set(targetNotificationRef, {
-          ...followNotifData,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-      } else {
-        batch.update(targetNotificationRef, followNotifData);
-      }
-
-      // Batch işlemini tamamla
       await batch.commit();
 
-      // 3. Bölüm: Push Bildirimi Gönder (notifyUsers helper kullanımı)
-      // Takip isteği özel bir durum olduğu için notifyUsers içindeki batch kısmını
-      // yukarıda manuel hallettik, burada sadece Push göndermek için helper'ı çağırabiliriz.
-      // Veya helper'ı sadece push için kullanacak şekilde sadeleştirebilirsin.
-
+      // Bildirim gönderimi
       await notifyUsers([targetId], {
         title: "Yeni bir takip isteği!",
         body: `${username} seni takip etmek istiyor.`,
@@ -91,9 +71,9 @@ export const handleFollowRequestCreate = onDocumentCreated(
         userId: userId,
       });
 
-      logger.info(`Takip isteği işlendi: ${userId} -> ${targetId}`);
+      logger.info(`İşlem başarılı: ${userId} -> ${targetId}`);
     } catch (error) {
-      logger.error("handleFollowRequestCreate hatası:", error);
+      logger.error("Hata detayı:", error);
     }
   },
 );
