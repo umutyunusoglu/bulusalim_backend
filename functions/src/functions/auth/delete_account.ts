@@ -145,6 +145,9 @@ export const deleteAccount = onCall(async (request) => {
     const userRef = db.collection("users").doc(myUserID);
     await db.recursiveDelete(userRef);
 
+    const publicUsersRef = db.collection("public_users").doc(myUserID);
+    await db.recursiveDelete(publicUsersRef);
+
     // =================================================================================
     // BÖLÜM 6: AUTH KAYDINI SİLME
     // =================================================================================
