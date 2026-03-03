@@ -3,6 +3,9 @@
     "@types/nodemailer": "^7.0.5"
   },
   "dependencies": {
-    "firebase-functions": "^7.0.3"
+    "es6-promise-pool": "^2.5.0",
+    "fast-xml-parser": "^5.4.2",
+    "firebase-admin": "^13.7.0",
+    "firebase-functions": "^7.0.6"
   }
 }
