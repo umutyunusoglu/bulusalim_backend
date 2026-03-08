@@ -42,8 +42,11 @@ export const handlePostCreate = onDocumentCreated(
         });
       }
 
-      // 3. Feed Koleksiyonuna Yaz
 
+    await db.collection("users").doc(postOwnerID).collection("posts").doc(postId).set({
+        ...postData,
+      });
+      
       logger.info(
         `Post ${postId} için feed oluşturuldu ve ${targetIDs.length} kişiye bildirim gitti.`,
       );
