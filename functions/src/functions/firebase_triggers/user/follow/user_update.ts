@@ -21,7 +21,7 @@ export const handleUserUpdate = onDocumentUpdated(
       const afterData = event.data.after.data();
       const userID = event.params.userID;
 
-      // 1. Basit Alanların Değişiklik Kontrolü
+      // 1. Alanların Değişiklik Kontrolü
       const fieldsToWatch = [
         "username",
         "profileImageUrl",
@@ -29,14 +29,13 @@ export const handleUserUpdate = onDocumentUpdated(
         "nameSurname",
         "bio",
         "isPrivate",
-        "accountType", // <-- Eklendi
+        "accountType",
       ];
 
       let isProfileChanged = fieldsToWatch.some(
         (field) => beforeData[field] !== afterData[field]
       );
 
-      // 2. Obje (Map) Olan communityData'nın Değişiklik Kontrolü (Deep Check)
       const beforeCommunityStr = JSON.stringify(beforeData.communityData || null);
       const afterCommunityStr = JSON.stringify(afterData.communityData || null);
 
@@ -56,26 +55,15 @@ export const handleUserUpdate = onDocumentUpdated(
         nameSurname,
         bio,
         isPrivate,
-        accountType,    // <-- Eklendi
-        communityData,  // <-- Eklendi
+        accountType,
+        communityData,
       } = afterData;
 
-      const batches: Promise<admin.firestore.WriteResult[]>[] = [];
-      let currentBatch = db.batch();
-      let operationCount = 0;
+      logger.info(`Starting profile update propagation for user: ${userID}`);
 
-      const commitBatchIfFull = () => {
-        if (operationCount >= 490) { 
-          batches.push(currentBatch.commit());
-          currentBatch = db.batch();
-          operationCount = 0;
-        }
-      };
-
-      // 3. Public User Güncellemesi (Yeni alanlarla birlikte)
+      // 2. Ana Profil Güncellemesi (Bağımsız ve Garanti)
       const publicUserRef = db.collection("public_users").doc(userID);
-      currentBatch.set(
-        publicUserRef,
+      await publicUserRef.set(
         {
           userID: userID,
           username: username ?? "isimsiz",
@@ -84,15 +72,25 @@ export const handleUserUpdate = onDocumentUpdated(
           bio: bio ?? null,
           university: universityName ?? null,
           isPrivate: isPrivate ?? false,
-          accountType: accountType ?? "personal", // <-- Varsayılan atandı
-          communityData: communityData ?? null,   // <-- Obje olarak doğrudan Firestore'a yazılır
+          accountType: accountType ?? "personal",
+          communityData: communityData ?? null,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
-        { merge: true } 
+        { merge: true }
       );
-      operationCount++;
 
-      logger.info(`Starting profile update propagation for user: ${userID}`);
+      // 3. Toplu İşlemler için BulkWriter Kurulumu
+      const bulkWriter = db.bulkWriter();
+
+      // ÖNEMLİ: Hata yönetimi. Doküman bulunamazsa (code: 5) atla!
+      bulkWriter.onWriteError((error) => {
+        if (error.code === 5) { // 5 = NOT_FOUND
+          logger.warn(`Skipping deleted document: ${error.documentRef.path}`);
+          return false; // false döndürmek: "Bu işlemi tekrar deneme, atla" demektir.
+        }
+        logger.error(`Write error on ${error.documentRef.path}:`, error);
+        return false; 
+      });
 
       const [eventsSnapshot, postsSnapshot] = await Promise.all([
         db
@@ -110,24 +108,19 @@ export const handleUserUpdate = onDocumentUpdated(
         if (!eventId) return;
 
         const eventRef = db.collection("events").doc(eventId);
-        currentBatch.update(eventRef, {
+        // BulkWriter promises döndürür, olası unhandled rejection'ları yutmak için .catch ekliyoruz.
+        bulkWriter.update(eventRef, {
           "creator.username": username ?? null,
           "creator.profileImageUrl": profileImageUrl ?? null,
           "creator.university": universityName ?? null,
-          // Not: Eğer etkinliklerde accountType görünmesi gerekiyorsa buraya da ekleyebilirsin:
-          // "creator.accountType": accountType ?? "personal",
-        });
-        operationCount++;
-        commitBatchIfFull();
+        }).catch(() => {}); 
 
         const participantRef = eventRef.collection("participants").doc(userID);
-        currentBatch.update(participantRef, {
+        bulkWriter.update(participantRef, {
           username: username ?? null,
           profileImageUrl: profileImageUrl ?? null,
           university: universityName ?? null,
-        });
-        operationCount++;
-        commitBatchIfFull();
+        }).catch(() => {});
       });
 
       // Postların Güncellenmesi
@@ -136,24 +129,17 @@ export const handleUserUpdate = onDocumentUpdated(
         if (!postId) return;
 
         const postRef = db.collection("posts").doc(postId);
-        currentBatch.update(postRef, {
+        bulkWriter.update(postRef, {
           "creator.username": username ?? null,
           "creator.profileImageUrl": profileImageUrl ?? null,
           "creator.university": universityName ?? null,
-        });
-        operationCount++;
-        commitBatchIfFull();
+        }).catch(() => {});
       });
 
-      if (operationCount > 0) {
-        batches.push(currentBatch.commit());
-      }
+      // 4. Tüm Kuyruktaki İşlemlerin Bitmesini Bekle
+      await bulkWriter.close();
 
-      await Promise.all(batches);
-
-      logger.info(
-        `Successfully updated public profile and propagated changes via ${batches.length} batch(es).`
-      );
+      logger.info(`Successfully propagated deep changes for user: ${userID}.`);
     } catch (error) {
       logger.error("An unexpected error occurred in handleUserUpdate:", error);
     }
