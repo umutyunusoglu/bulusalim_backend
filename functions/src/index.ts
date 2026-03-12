@@ -54,6 +54,5 @@ export {
   startEventLogic,
   stopEventLogic,
   sendEventInvitation,
-  manualZombieCleanup,
   hourlyEventPostCleanup,
 };

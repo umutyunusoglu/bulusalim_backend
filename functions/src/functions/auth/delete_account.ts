@@ -105,7 +105,6 @@ export const deleteAccount = onCall(async (request) => {
             profileImageUrl: newOwnerData.profileImageUrl || "",
             eventScore: null,
             role: "creator",
-            status: newOwnerData.status,
 
             // BadgeLevel vs. varsa buraya ekle
           };
@@ -113,6 +112,7 @@ export const deleteAccount = onCall(async (request) => {
           // 3. Etkinliği güncelle
           return eventDoc.ref.update({
             creator: newCreatorMap,
+            
           });
         } else {
           // Kimse yoksa etkinliği ve altındakileri (messages, requestPool vb.) sil
