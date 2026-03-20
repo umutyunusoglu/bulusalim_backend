@@ -36,8 +36,12 @@ export const handleEventUpdate = onDocumentUpdated(
       const isStartTimeChanged = !beforeData.startTime?.isEqual(
         afterData.startTime,
       );
+      const currentStartTime = afterData.startTime.toDate();
+      const now = new Date();
+      
+      const isStartTimeIsInFuture = currentStartTime > now;
       const isForceStarted =
-        beforeData.status !== "ongoing" && afterData.status === "ongoing";
+        beforeData.status !== "ongoing" && afterData.status === "ongoing" && isStartTimeIsInFuture;
 
       const creatorProfileImageUrl = afterData.creator.profileImageUrl || null;
       const eventName = afterData.name || "Buluşmanın"; // Fallback title

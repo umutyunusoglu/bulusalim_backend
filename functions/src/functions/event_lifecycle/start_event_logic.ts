@@ -5,6 +5,7 @@ const { CloudTasksClient } = require("@google-cloud/tasks");
 const tasksClient = new CloudTasksClient();
 
 import * as config from "../configs/event_lifecycle_config.json";
+import { notifyUsers } from "../notifications/notify_users";
 
 const PROJECT = config.firebase.projectId;
 const LOCATION = config.firebase.location;
@@ -114,6 +115,31 @@ export const startEventLogic = onRequest(async (req, res) => {
 
     await batch.commit();
 
+    // 4. ADIM: Bildirimler
+    const participantsSnapshot = await db
+      .collection("events")
+      .doc(eventId)
+      .collection("participants")
+      .get();
+
+    const participantIDs = participantsSnapshot.docs.map((doc) => doc.id);
+
+    if (participantIDs.length > 0) {
+      const eventData = eventDoc.data();
+      const eventName = eventData?.name || "Buluşmanın";
+      const creatorProfileImageUrl = eventData?.creator?.profileImageUrl || null;
+      const creatorUserId = eventData?.creator?.userID || null;
+
+      await notifyUsers(participantIDs, {
+        title: eventName,
+        body: "Buluşması başladı!",
+        type: "eventStarted",
+        profileImageUrl: creatorProfileImageUrl,
+        actionText: "Buluşmayı Gör...",
+        eventId: eventId,
+        userId: creatorUserId,
+      });
+    }
     logger.info(`SİSTEM BAŞARILI: Event ${eventId} başlatıldı.`);
     res.status(200).send("Başlatıldı");
   } catch (error: any) {
