@@ -30,7 +30,6 @@ import { deleteAccount } from "./functions/auth/delete_account";
 import { startEventLogic } from "./functions/event_lifecycle/start_event_logic";
 import { stopEventLogic } from "./functions/event_lifecycle/stop_event_logic";
 import { sendEventInvitation } from "./functions/send_event_invitation";
-import { manualZombieCleanup } from "./functions/admin_functions/zombie_cleanup";
 import { hourlyEventPostCleanup } from "./functions/crone_jobs/hourly_event_post_cleanup";
 
 export {

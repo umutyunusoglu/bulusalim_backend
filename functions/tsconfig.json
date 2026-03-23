@@ -1,10 +1,9 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "Node16",
+    "moduleResolution": "Node16",
     "esModuleInterop": true,
     "noImplicitReturns": true,
-    "noUnusedLocals": false,
     "resolveJsonModule": true,
     "outDir": "lib",
     "rootDir": "src", // MUTLAKA BURADA OLMALI
