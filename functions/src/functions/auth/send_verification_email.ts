@@ -45,8 +45,12 @@ export const sendVerificationEmail = onCall(async (request) => {
 
   const mailOptions = {
     from: `Outnest Verification <${root_mail}>`,
-    to: targetEmail,
+    to: `<${targetEmail}>`,
     subject: `Outnest Doğrulama Kodun: ${OTP}`,
+    envelope: {
+      from: root_mail,
+      to: targetEmail,
+    },
     html: `
             <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
                 <h2 style="color: #2c3e50;">E-posta Doğrulaması</h2>

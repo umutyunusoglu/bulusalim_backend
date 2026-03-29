@@ -1,10 +1,18 @@
 import { onRequest } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { logger } from "firebase-functions/logger";
-import { CloudTasksClient } from "@google-cloud/tasks";
 import { FieldValue } from "firebase-admin/firestore";
 
-const tasksClient = new CloudTasksClient();
+let tasksClientPromise: Promise<any> | null = null;
+
+const getTasksClient = async () => {
+  if (!tasksClientPromise) {
+    tasksClientPromise = import("@google-cloud/tasks").then(
+      ({ CloudTasksClient }) => new CloudTasksClient(),
+    );
+  }
+  return tasksClientPromise;
+};
 
 export const stopEventLogic = onRequest(async (req, res) => {
   const { eventId } = req.body;
@@ -39,13 +47,13 @@ export const stopEventLogic = onRequest(async (req, res) => {
     const stopTaskName = eventData?.eventStopTaskName;
     if (stopTaskName) {
       try {
+        const tasksClient = await getTasksClient();
         await tasksClient.deleteTask({ name: stopTaskName });
       } catch (err) {
         // Task yoksa hatayı yut
       }
     }
 
-    const oneDayInMs = 24 * 60 * 60 * 1000;
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
     const expirationDate = new Date(Date.now() + ONE_DAY_MS);
     const finalExpiresAt = admin.firestore.Timestamp.fromDate(expirationDate);
