@@ -35,6 +35,8 @@ export const handleFollowRequestCreate = onDocumentCreated(
 
       // İŞLEM 1: İstek Atan Kişi (Senin tarafın)
       // Burada sadece doküman varsa "sent" yapıyoruz.
+
+      //sent pending falan legacy
       const myNotifSnap = await myNotificationRef.get();
       if (myNotifSnap.exists && myNotifSnap.data()?.status === "pending") {
         batch.update(myNotificationRef, {
