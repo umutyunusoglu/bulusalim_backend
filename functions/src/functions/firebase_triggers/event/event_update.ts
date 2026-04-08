@@ -10,7 +10,6 @@ const db = admin.firestore();
 const { CloudTasksClient } = require("@google-cloud/tasks");
 const tasksClient = new CloudTasksClient();
 
-// Konfigürasyonlar
 import * as config from "../../configs/event_lifecycle_config.json";
 const PROJECT = config.firebase.projectId;
 const LOCATION = config.firebase.location;
@@ -30,58 +29,67 @@ export const handleEventUpdate = onDocumentUpdated(
 
       if (!afterData || !beforeData) return;
 
-      const isLocationChanged = !beforeData.location?.isEqual(
-        afterData.location,
-      );
-      const isStartTimeChanged = !beforeData.startTime?.isEqual(
-        afterData.startTime,
-      );
+      const isLocationChanged = !beforeData.location?.isEqual(afterData.location);
+      const isStartTimeChanged = !beforeData.startTime?.isEqual(afterData.startTime);
       const currentStartTime = afterData.startTime.toDate();
       const now = new Date();
-      
       const isStartTimeIsInFuture = currentStartTime > now;
-      const isForceStarted =
-        beforeData.status !== "ongoing" && afterData.status === "ongoing" && isStartTimeIsInFuture;
+
+      const isForceStatusChange =
+        (beforeData.status !== "ongoing" &&
+          afterData.status === "ongoing" &&
+          isStartTimeIsInFuture) ||
+        (beforeData.status !== "completed" && afterData.status === "completed");
 
       const creatorProfileImageUrl = afterData.creator.profileImageUrl || null;
-      const eventName = afterData.name || "Buluşmanın"; // Fallback title
-      // 2. Task Management
-      if (isStartTimeChanged || isForceStarted) {
-        if (beforeData.eventStartTaskName) {
-          try {
-            await tasksClient.deleteTask({
-              name: beforeData.eventStartTaskName,
-            });
-          } catch (e: any) {
-            if (e.code !== 5) logger.error("Task delete error", e);
+      const eventName = afterData.name || "Buluşmanın";
+
+      // Task Management
+      if (isStartTimeChanged || isForceStatusChange) {
+        if (afterData.status === "completed") {
+          const stopTaskName = afterData.eventStopTaskName;
+          if (stopTaskName) {
+            try {
+              await tasksClient.runTask({ name: stopTaskName });
+            } catch (e: any) {
+              if (e.code !== 5) logger.error("Stop task early execute error", e);
+            }
           }
-        }
+        } else {
+          if (beforeData.eventStartTaskName) {
+            try {
+              await tasksClient.deleteTask({
+                name: beforeData.eventStartTaskName,
+              });
+            } catch (e: any) {
+              if (e.code !== 5) logger.error("Task delete error", e);
+            }
+          }
 
-        if (
-          isStartTimeChanged &&
-          !["ongoing", "completed"].includes(afterData.status)
-        ) {
-          const parent = tasksClient.queuePath(PROJECT, LOCATION, QUEUE);
-          const task = {
-            httpRequest: {
-              httpMethod: "POST",
-              url: WORKER_URL,
-              body: Buffer.from(JSON.stringify({ eventId })).toString("base64"),
-              headers: { "Content-Type": "application/json" },
-            },
-            scheduleTime: { seconds: afterData.startTime.seconds },
-          };
+          if (
+            isStartTimeChanged &&
+            !["ongoing", "completed"].includes(afterData.status)
+          ) {
+            const parent = tasksClient.queuePath(PROJECT, LOCATION, QUEUE);
+            const task = {
+              httpRequest: {
+                httpMethod: "POST",
+                url: WORKER_URL,
+                body: Buffer.from(JSON.stringify({ eventId })).toString("base64"),
+                headers: { "Content-Type": "application/json" },
+              },
+              scheduleTime: { seconds: afterData.startTime.seconds },
+            };
 
-          const [response] = await tasksClient.createTask({ parent, task });
+            const [response] = await tasksClient.createTask({ parent, task });
 
-          // Safety: Only update if different to prevent redundant triggers
-          if (afterData.eventStartTaskName !== response.name) {
-            await eventRef.update({ eventStartTaskName: response.name });
+            if (afterData.eventStartTaskName !== response.name) {
+              await eventRef.update({ eventStartTaskName: response.name });
+            }
           }
         }
       }
-
-      // 3. Notifications
+      // Notifications
       const participantsSnapshot = await db
         .collection("events")
         .doc(eventId)
@@ -91,7 +99,6 @@ export const handleEventUpdate = onDocumentUpdated(
       const participantIDs = participantsSnapshot.docs.map((doc) => doc.id);
 
       if (participantIDs.length > 0) {
-        const metadata: NotificationMetadata = { eventId };
         const promises = [];
 
         if (isStartTimeChanged)
@@ -106,7 +113,8 @@ export const handleEventUpdate = onDocumentUpdated(
               userId: afterData.creator.userID || null,
             }),
           );
-        if (isForceStarted)
+
+        if (afterData.status === "ongoing" && isStartTimeIsInFuture)
           promises.push(
             notifyUsers(participantIDs, {
               title: eventName,

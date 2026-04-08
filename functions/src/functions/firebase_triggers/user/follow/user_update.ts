@@ -30,6 +30,7 @@ export const handleUserUpdate = onDocumentUpdated(
         "bio",
         "isPrivate",
         "accountType",
+        "verifiedEventCount",
       ];
 
       let isProfileChanged = fieldsToWatch.some(
@@ -57,6 +58,7 @@ export const handleUserUpdate = onDocumentUpdated(
         isPrivate,
         accountType,
         communityData,
+        verifiedEventCount,
       } = afterData;
 
       logger.info(`Starting profile update propagation for user: ${userID}`);
@@ -75,6 +77,7 @@ export const handleUserUpdate = onDocumentUpdated(
           accountType: accountType ?? "personal",
           communityData: communityData ?? null,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          verifiedEventCount: verifiedEventCount ?? 0,
         },
         { merge: true }
       );
@@ -89,7 +92,7 @@ export const handleUserUpdate = onDocumentUpdated(
           return false; // false döndürmek: "Bu işlemi tekrar deneme, atla" demektir.
         }
         logger.error(`Write error on ${error.documentRef.path}:`, error);
-        return false; 
+        return false;
       });
 
       const [eventsSnapshot, postsSnapshot] = await Promise.all([
@@ -113,14 +116,14 @@ export const handleUserUpdate = onDocumentUpdated(
           "creator.username": username ?? null,
           "creator.profileImageUrl": profileImageUrl ?? null,
           "creator.university": universityName ?? null,
-        }).catch(() => {}); 
+        }).catch(() => { });
 
         const participantRef = eventRef.collection("participants").doc(userID);
         bulkWriter.update(participantRef, {
           username: username ?? null,
           profileImageUrl: profileImageUrl ?? null,
           university: universityName ?? null,
-        }).catch(() => {});
+        }).catch(() => { });
       });
 
       // Postların Güncellenmesi
@@ -133,7 +136,7 @@ export const handleUserUpdate = onDocumentUpdated(
           "creator.username": username ?? null,
           "creator.profileImageUrl": profileImageUrl ?? null,
           "creator.university": universityName ?? null,
-        }).catch(() => {});
+        }).catch(() => { });
       });
 
       // 4. Tüm Kuyruktaki İşlemlerin Bitmesini Bekle

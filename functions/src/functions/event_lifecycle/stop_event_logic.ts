@@ -74,7 +74,6 @@ export const stopEventLogic = onRequest(async (req, res) => {
         status: "completed",
         expiresAt: finalExpiresAt, // Tarihi buraya basıyoruz
         eventStopTaskName: FieldValue.delete(),
-        // Eğer daha önce completedAt atılmadıysa şimdi at, varsa dokunma
         completedAt: eventData?.completedAt || FieldValue.serverTimestamp(),
       },
       { merge: true },
@@ -84,20 +83,29 @@ export const stopEventLogic = onRequest(async (req, res) => {
 
     if (!participantsSnapshot.empty) {
       for (const doc of participantsSnapshot.docs) {
-        const logRef = db
+        const logDoc = await db
           .collection("users")
           .doc(doc.id)
           .collection("eventLog")
-          .doc(eventId);
+          .doc(eventId)
+          .get();
 
-        batch.set(
-          logRef,
+        const isVerified = logDoc.exists && logDoc.data()?.isVerified === true;
+        logger.info(`User: ${doc.id}, logDoc exists: ${logDoc.exists}, data: ${JSON.stringify(logDoc.data())}`); batch.set(
+          logDoc.ref,
           {
             status: "completed",
             endedAt: FieldValue.serverTimestamp(),
           },
           { merge: true },
         );
+
+        if (isVerified) {
+          const userRef = db.collection("users").doc(doc.id);
+          batch.update(userRef, {
+            verifiedEventCount: FieldValue.increment(1),
+          });
+        }
 
         operationCounter++;
 
