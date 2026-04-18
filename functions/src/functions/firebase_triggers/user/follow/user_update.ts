@@ -31,6 +31,7 @@ export const handleUserUpdate = onDocumentUpdated(
         "isPrivate",
         "accountType",
         "verifiedEventCount",
+        "city",
       ];
 
       let isProfileChanged = fieldsToWatch.some(

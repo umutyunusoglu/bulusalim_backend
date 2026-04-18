@@ -27,6 +27,7 @@ export const handleUserCreate = onDocumentCreated(
         isPrivate: userData.isPrivate ?? false,
         bio: userData.bio || null,
         university: userData.universityName || null,
+        city: userData.city || null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
