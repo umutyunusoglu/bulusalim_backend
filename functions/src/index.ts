@@ -4,6 +4,7 @@ import { setGlobalOptions } from "firebase-functions/v2";
 const serviceAccount = require("../service_account.json");
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
+  storageBucket: "bulusalim-e8e7c.firebasestorage.app"
 });
 
 setGlobalOptions({ maxInstances: 10, timeoutSeconds: 300, memory: "1GiB" });
@@ -31,6 +32,7 @@ import { startEventLogic } from "./functions/event_lifecycle/start_event_logic";
 import { stopEventLogic } from "./functions/event_lifecycle/stop_event_logic";
 import { sendEventInvitation } from "./functions/send_event_invitation";
 import { hourlyEventPostCleanup } from "./functions/crone_jobs/hourly_event_post_cleanup";
+import { monthlyDumpProcessor } from "./functions/crone_jobs/dump_creator";
 
 export {
   handleUserCreate,
@@ -54,4 +56,5 @@ export {
   stopEventLogic,
   sendEventInvitation,
   hourlyEventPostCleanup,
+  monthlyDumpProcessor,
 };
